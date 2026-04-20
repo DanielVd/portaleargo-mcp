@@ -81,6 +81,23 @@ export async function refreshDashboard(): Promise<Dashboard> {
   }
 }
 
+export async function getProfile() {
+  const argoClient = client ?? await initArgoClient();
+  const loggedInClient = await argoClient.login();
+
+  if (!loggedInClient.profile) {
+    throw new Error("Argo profile is not available");
+  }
+
+  return loggedInClient.profile;
+}
+
+export async function getProfileDetails() {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getDettagliProfilo();
+}
+
 export async function getScheduleForDate(date: string) {
   const argoClient = client ?? await initArgoClient();
   const [year, month, day] = date.split("-").map(Number);
@@ -91,6 +108,77 @@ export async function getScheduleForDate(date: string) {
   } catch (error) {
     throw new Error(`Could not read Argo schedule data: ${toSafeErrorMessage(error)}`);
   }
+}
+
+export async function getNoticeAttachmentLink(uid: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getLinkAllegato(uid);
+}
+
+export async function getStudentAttachmentLink(uid: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getLinkAllegatoStudente(uid, pkScheda);
+}
+
+export async function getPaymentReceipt(iuv: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getRicevuta(iuv);
+}
+
+export async function getScrutinyGrades() {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getVotiScrutinio();
+}
+
+export async function getMeetings() {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getRicevimenti();
+}
+
+export async function getTaxes(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getTasse(pkScheda);
+}
+
+export async function getPcto(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getPCTOData(pkScheda);
+}
+
+export async function getRecoveryCourses(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getCorsiRecupero(pkScheda);
+}
+
+export async function getCurriculumData(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getCurriculum(pkScheda);
+}
+
+export async function getNoticeBoardHistory(pkScheda: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getStoricoBacheca(pkScheda);
+}
+
+export async function getStudentNoticeBoardHistory(pkScheda: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getStoricoBachecaAlunno(pkScheda);
+}
+
+export async function getDefaultPkScheda() {
+  const profile = await getProfile();
+  return profile.scheda.pk;
 }
 
 function toSafeErrorMessage(error: unknown): string {
