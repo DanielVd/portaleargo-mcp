@@ -1,0 +1,65 @@
+Istruzioni MVP argo-homework-mcp
+
+1) Vai nella cartella del progetto:
+cd /home/daniel/Projects/Codex/DAN-40
+
+2) Crea il file .env dal template:
+cp .env.example .env
+
+3) Apri .env e imposta queste variabili:
+ARGO_SCHOOL_CODE=...
+ARGO_USERNAME=...
+ARGO_PASSWORD=...
+
+4) Installa le dipendenze:
+npm install
+
+5) Avvio in development:
+npm run dev
+
+6) Build del progetto:
+npm run build
+
+7) Avvio della versione buildata:
+npm start
+
+8) Esegui i test:
+npm test
+
+9) Configurazione esempio per un client MCP compatibile via STDIO:
+{
+  "mcpServers": {
+    "argo-homework": {
+      "command": "node",
+      "args": ["/home/daniel/Projects/Codex/DAN-40/dist/index.js"],
+      "env": {
+        "ARGO_SCHOOL_CODE": "SS00000",
+        "ARGO_USERNAME": "your-argo-username",
+        "ARGO_PASSWORD": "your-argo-password"
+      }
+    }
+  }
+}
+
+10) Tool disponibile:
+get_tomorrow_homework
+- non richiede input
+- legge Argo
+- calcola domani in timezone Europe/Rome
+- filtra i compiti con dataConsegna uguale a domani
+
+Output atteso:
+{
+  "date": "YYYY-MM-DD",
+  "items": [
+    {
+      "subject": "...",
+      "teacher": "...",
+      "assignment": "...",
+      "due_date": "...",
+      "hour": "...",
+      "activity": "..."
+    }
+  ],
+  "count": 0
+}

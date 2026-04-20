@@ -1,0 +1,25 @@
+{
+  "name": "portaleargo-api",
+  "version": "1.0.0-github-snapshot",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "http-cookie-agent": "^6.0.8",
+    "tough-cookie": "^5.1.2",
+    "undici": "^7.5.0"
+  }
+}
