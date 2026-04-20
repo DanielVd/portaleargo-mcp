@@ -1,15 +1,19 @@
 # argo-homework-mcp
 
-Minimal read-only MCP server in TypeScript that logs into Argo at startup and exposes one STDIO tool: `get_tomorrow_homework`.
+Read-only MCP server for Argo built in TypeScript. Uses `portaleargo-api` as backend and exposes:
+
+- MCP over STDIO
+- MCP over streamable HTTP
+- small REST API for direct HTTP integrations
 
 ## Requirements
 
 - Node.js 20+
-- Argo credentials available on the server
+- Argo credentials on server
 
-## Environment variables
+## Environment
 
-Create a `.env` file from `.env.example`:
+Create `.env` from template:
 
 ```bash
 cp .env.example .env
@@ -20,44 +24,49 @@ Set:
 - `ARGO_SCHOOL_CODE`
 - `ARGO_USERNAME`
 - `ARGO_PASSWORD`
+- optional: `MCP_HTTP_HOST`
+- optional: `MCP_HTTP_PORT`
+- optional: `MCP_HTTP_PATH`
 
-The server reads credentials only from environment variables. It does not expose authentication through MCP.
-
-## Install dependencies
+## Install
 
 ```bash
 npm install
 ```
 
-`portaleargo-api` is included as a local vendored snapshot built from the GitHub repository `DTrombett/portaleargo-api` (snapshot commit used for this MVP: `ca4b54e3fb05045969d1e3c75ca745a86d9423d8`). This avoids the upstream git install issue while still using the real library code and types.
+`portaleargo-api` is vendored from GitHub repo `DTrombett/portaleargo-api` because direct git install was not reliable for this project setup.
 
-## Run in development
+## Run
+
+STDIO:
 
 ```bash
 npm run dev
+npm start
 ```
 
-## Build
+HTTP:
+
+```bash
+npm run dev:http
+npm run start:http
+```
+
+Build:
 
 ```bash
 npm run build
 ```
 
-## Run the built server
-
-```bash
-npm start
-```
-
-## Test
+Test:
 
 ```bash
 npm test
 ```
 
-## MCP client configuration via STDIO
+## MCP
 
-Example configuration for a compatible MCP client:
+### STDIO
 
 ```json
 {
@@ -75,27 +84,66 @@ Example configuration for a compatible MCP client:
 }
 ```
 
-## Tool
+### Streamable HTTP
 
-### `get_tomorrow_homework`
+Default URL:
 
-- input: none
-- behavior: calculates tomorrow in `Europe/Rome`, refreshes Argo dashboard data, filters `dashboard.registro[*].compiti[*].dataConsegna`
-- output:
-
-```json
-{
-  "date": "YYYY-MM-DD",
-  "items": [
-    {
-      "subject": "...",
-      "teacher": "...",
-      "assignment": "...",
-      "due_date": "...",
-      "hour": "...",
-      "activity": "..."
-    }
-  ],
-  "count": 0
-}
+```text
+http://HOST:3000/mcp
 ```
+
+LibreChat example:
+
+```yaml
+mcpSettings:
+  allowedDomains:
+    - "HOST_OR_IP"
+
+mcpServers:
+  argo-homework:
+    type: streamable-http
+    url: http://HOST_OR_IP:3000/mcp
+```
+
+## MCP tools
+
+- `get_tomorrow_homework`
+- `get_homework_for_date`
+- `get_tomorrow_schedule`
+- `get_schedule_for_date`
+- `get_profile_summary`
+- `get_profile_details`
+- `get_notice_attachment_link`
+- `get_student_attachment_link`
+- `get_payment_receipt`
+- `get_scrutiny_grades`
+- `get_meetings`
+- `get_taxes`
+- `get_pcto`
+- `get_recovery_courses`
+- `get_curriculum`
+- `get_notice_board_history`
+- `get_student_notice_board_history`
+
+## REST endpoints
+
+- `GET /health`
+- `GET /api/profile/summary`
+- `GET /api/profile/details`
+- `GET /api/homework/tomorrow`
+- `GET /api/homework/:date`
+- `GET /api/schedule/tomorrow`
+- `GET /api/schedule/:date`
+- `GET /api/meetings`
+- `GET /api/scrutiny-grades`
+- `GET /api/taxes?pkScheda=...`
+- `GET /api/pcto?pkScheda=...`
+- `GET /api/recovery-courses?pkScheda=...`
+- `GET /api/curriculum?pkScheda=...`
+- `GET /api/notice-board/history?pkScheda=...`
+- `GET /api/student-notice-board/history?pkScheda=...`
+- `GET /api/attachments/notice/:uid`
+- `GET /api/attachments/student/:uid?pkScheda=...`
+- `GET /api/payment-receipt/:iuv`
+
+Dates must be `YYYY-MM-DD`.
