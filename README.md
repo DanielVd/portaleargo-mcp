@@ -1,6 +1,6 @@
-# argo-homework-mcp
+# portaleargo-mcp
 
-Read-only MCP server for Argo built in TypeScript. Uses `portaleargo-api` as backend and exposes:
+Read-only MCP server for Argo ScuolaNext built in TypeScript. Uses [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) as backend and exposes:
 
 - MCP over STDIO
 - MCP over streamable HTTP
@@ -34,7 +34,7 @@ Set:
 npm install
 ```
 
-`portaleargo-api` is vendored from GitHub repo `DTrombett/portaleargo-api` because direct git install was not reliable for this project setup.
+[`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) is vendored because direct git install was not reliable for this project setup.
 
 ## Run
 
