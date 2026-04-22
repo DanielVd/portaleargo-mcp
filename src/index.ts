@@ -39,8 +39,7 @@ import {
 const pkSchedaSchema = z.string().min(1, "pkScheda is required");
 
 function toStructuredText(title: string, data: Record<string, unknown>) {
-  const text = JSON.stringify(data, null, 2);
-  return `${title}\n${text}`;
+  return `## ${title}\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
 }
 
 function toolResult<T extends Record<string, unknown>>(title: string, structuredContent: T) {

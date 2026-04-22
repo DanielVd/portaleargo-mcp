@@ -49,12 +49,14 @@ export function extractScheduleForDate(
 
 export function formatScheduleSummary(result: TomorrowScheduleResult): string {
   if (result.count === 0) {
-    return `No schedule available for ${result.date}.`;
+    return `## Schedule for ${result.date}\n\nNo lessons.`;
   }
 
-  const lines = result.items.map(
-    (item) => `- ${item.hour}. ${item.subject} (${item.teacher})`,
+  const header = `## Schedule for ${result.date} (${result.count} lessons)\n`;
+  const tableHeader = `| Hour | Time | Subject | Teacher |\n|------|------|---------|---------|`;
+  const rows = result.items.map(
+    (item) => `| ${item.hour} | ${item.time} | ${item.subject} | ${item.teacher} |`,
   );
 
-  return [`Schedule for ${result.date}: ${result.count}`, ...lines].join("\n");
+  return [header, tableHeader, ...rows].join("\n");
 }
