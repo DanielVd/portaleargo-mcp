@@ -1,10 +1,27 @@
 # portaleargo-mcp
 
-Read-only MCP server for **Argo ScuolaNext** built in TypeScript. Wraps [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) and exposes the data through three interfaces:
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org/)
 
-- MCP over STDIO (Claude Desktop, Claude Code, any MCP client)
-- MCP over streamable HTTP (LibreChat, remote clients)
-- REST API for direct HTTP integrations
+Read-only MCP server for **Argo ScuolaNext** built in TypeScript. Exposes homework, timetables, grades, meetings, taxes, PCTO, and more through three interfaces:
+
+- **MCP over STDIO** — Claude Desktop, Claude Code, any MCP-compatible client
+- **MCP over streamable HTTP** — LibreChat, remote clients
+- **REST API** — direct HTTP integrations
+
+Built on top of [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) by [@DTrombett](https://github.com/DTrombett).
+
+## Table of contents
+
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Running](#running)
+- [MCP client configuration](#mcp-client-configuration)
+- [MCP tools](#mcp-tools)
+- [REST endpoints](#rest-endpoints)
+- [Tests](#tests)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Requirements
 
@@ -19,21 +36,21 @@ cp .env.example .env
 
 Edit `.env`:
 
-| Variable | Required | Description |
-|---|---|---|
-| `ARGO_SCHOOL_CODE` | yes | School code (e.g. `SS00000`) |
-| `ARGO_USERNAME` | yes | Argo username |
-| `ARGO_PASSWORD` | yes | Argo password |
-| `MCP_HTTP_HOST` | no | HTTP bind address (default: `0.0.0.0`) |
-| `MCP_HTTP_PORT` | no | HTTP port (default: `3000`) |
-| `MCP_HTTP_PATH` | no | MCP endpoint path (default: `/mcp`) |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `ARGO_SCHOOL_CODE` | yes | | School code (e.g. `SS00000`) |
+| `ARGO_USERNAME` | yes | | Argo username |
+| `ARGO_PASSWORD` | yes | | Argo password |
+| `MCP_HTTP_HOST` | no | `0.0.0.0` | HTTP bind address |
+| `MCP_HTTP_PORT` | no | `3000` | HTTP port |
+| `MCP_HTTP_PATH` | no | `/mcp` | MCP endpoint path |
 
 ```bash
 npm install
 npm run build
 ```
 
-> `portaleargo-api` is vendored under `vendor/` because direct git install was not reliable for this project setup. Source: [`DTrombett/portaleargo-api`](https://github.com/DTrombett/portaleargo-api) (MIT).
+> `portaleargo-api` is vendored under `vendor/` because direct git install was not reliable for this project setup.
 
 ## Running
 
@@ -79,14 +96,14 @@ mcpServers:
 
 | Tool | Input | Description |
 |---|---|---|
-| `get_tomorrow_homework` | — | Homework due tomorrow (Europe/Rome) |
+| `get_tomorrow_homework` | (none) | Homework due tomorrow (Europe/Rome) |
 | `get_homework_for_date` | `date: YYYY-MM-DD` | Homework due on a specific date |
-| `get_tomorrow_schedule` | — | School timetable for tomorrow |
+| `get_tomorrow_schedule` | (none) | School timetable for tomorrow |
 | `get_schedule_for_date` | `date: YYYY-MM-DD` | School timetable for a specific date |
-| `get_profile_summary` | — | Student name, class, school, guardian |
-| `get_profile_details` | — | Full student and guardian profile |
-| `get_scrutiny_grades` | — | Period grades / scrutiny results |
-| `get_meetings` | — | Teacher meeting slots and bookings |
+| `get_profile_summary` | (none) | Student name, class, school, guardian |
+| `get_profile_details` | (none) | Full student and guardian profile |
+| `get_scrutiny_grades` | (none) | Period grades / scrutiny results |
+| `get_meetings` | (none) | Teacher meeting slots and bookings |
 | `get_taxes` | `pkScheda?` | School fees and payments |
 | `get_pcto` | `pkScheda?` | PCTO (work-school alternation) data |
 | `get_recovery_courses` | `pkScheda?` | Recovery course records |
@@ -97,7 +114,7 @@ mcpServers:
 | `get_student_attachment_link` | `uid`, `pkScheda?` | Download URL for a student attachment |
 | `get_payment_receipt` | `iuv` | Payment receipt by IUV code |
 
-`pkScheda` is optional for all tools that accept it — when omitted it defaults to the primary student on the account.
+`pkScheda` is optional for all tools that accept it. When omitted it defaults to the primary student on the account.
 
 ## REST endpoints
 
@@ -130,6 +147,14 @@ GET /api/payment-receipt/:iuv
 npm test
 ```
 
+## Contributing
+
+Issues and pull requests are welcome. For significant changes please open an issue first to discuss what you would like to change.
+
 ## License
 
-MIT
+[MIT](LICENSE) - Copyright (c) 2026 Daniel Vedovato
+
+---
+
+Powered by [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) by [@DTrombett](https://github.com/DTrombett).
