@@ -5,9 +5,9 @@
 
 Read-only MCP server for **Argo ScuolaNext** built in TypeScript. Exposes homework, timetables, grades, meetings, taxes, PCTO, and more through three interfaces:
 
-- **MCP over STDIO** — Claude Desktop, Claude Code, any MCP-compatible client
-- **MCP over streamable HTTP** — LibreChat, remote clients
-- **REST API** — direct HTTP integrations
+- **MCP over STDIO**: Claude Desktop, Claude Code, any MCP-compatible client
+- **MCP over streamable HTTP**: LibreChat, remote clients
+- **REST API**: direct HTTP integrations
 
 Built on top of [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) by [@DTrombett](https://github.com/DTrombett).
 
