@@ -1,149 +1,135 @@
 # portaleargo-mcp
 
-Read-only MCP server for Argo ScuolaNext built in TypeScript. Uses [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) as backend and exposes:
+Read-only MCP server for **Argo ScuolaNext** built in TypeScript. Wraps [`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) and exposes the data through three interfaces:
 
-- MCP over STDIO
-- MCP over streamable HTTP
-- small REST API for direct HTTP integrations
+- MCP over STDIO (Claude Desktop, Claude Code, any MCP client)
+- MCP over streamable HTTP (LibreChat, remote clients)
+- REST API for direct HTTP integrations
 
 ## Requirements
 
 - Node.js 20+
-- Argo credentials on server
+- An Argo ScuolaNext account (student or parent)
 
-## Environment
-
-Create `.env` from template:
+## Setup
 
 ```bash
 cp .env.example .env
 ```
 
-Set:
+Edit `.env`:
 
-- `ARGO_SCHOOL_CODE`
-- `ARGO_USERNAME`
-- `ARGO_PASSWORD`
-- optional: `MCP_HTTP_HOST`
-- optional: `MCP_HTTP_PORT`
-- optional: `MCP_HTTP_PATH`
-
-## Install
+| Variable | Required | Description |
+|---|---|---|
+| `ARGO_SCHOOL_CODE` | yes | School code (e.g. `SS00000`) |
+| `ARGO_USERNAME` | yes | Argo username |
+| `ARGO_PASSWORD` | yes | Argo password |
+| `MCP_HTTP_HOST` | no | HTTP bind address (default: `0.0.0.0`) |
+| `MCP_HTTP_PORT` | no | HTTP port (default: `3000`) |
+| `MCP_HTTP_PATH` | no | MCP endpoint path (default: `/mcp`) |
 
 ```bash
 npm install
-```
-
-[`portaleargo-api`](https://github.com/DTrombett/portaleargo-api) is vendored because direct git install was not reliable for this project setup.
-
-## Run
-
-STDIO:
-
-```bash
-npm run dev
-npm start
-```
-
-HTTP:
-
-```bash
-npm run dev:http
-npm run start:http
-```
-
-Build:
-
-```bash
 npm run build
 ```
 
-Test:
+> `portaleargo-api` is vendored under `vendor/` because direct git install was not reliable for this project setup. Source: [`DTrombett/portaleargo-api`](https://github.com/DTrombett/portaleargo-api) (MIT).
 
-```bash
-npm test
-```
+## Running
 
-## MCP
+| Mode | Dev | Production |
+|---|---|---|
+| STDIO | `npm run dev` | `npm start` |
+| HTTP | `npm run dev:http` | `npm run start:http` |
 
-### STDIO
+## MCP client configuration
+
+### STDIO (Claude Desktop / Claude Code)
 
 ```json
 {
   "mcpServers": {
-    "argo-homework": {
+    "portaleargo": {
       "command": "node",
-      "args": ["/absolute/path/to/argo-homework-mcp/dist/index.js"],
+      "args": ["/absolute/path/to/portaleargo-mcp/dist/index.js"],
       "env": {
         "ARGO_SCHOOL_CODE": "SS00000",
-        "ARGO_USERNAME": "your-argo-username",
-        "ARGO_PASSWORD": "your-argo-password"
+        "ARGO_USERNAME": "your-username",
+        "ARGO_PASSWORD": "your-password"
       }
     }
   }
 }
 ```
 
-### Streamable HTTP
-
-Default URL:
-
-```text
-http://HOST:3000/mcp
-```
-
-LibreChat example:
+### Streamable HTTP (LibreChat)
 
 ```yaml
 mcpSettings:
   allowedDomains:
-    - "HOST_OR_IP"
+    - "YOUR_HOST_OR_IP"
 
 mcpServers:
-  argo-homework:
+  portaleargo:
     type: streamable-http
-    url: http://HOST_OR_IP:3000/mcp
+    url: http://YOUR_HOST_OR_IP:3000/mcp
 ```
 
 ## MCP tools
 
-- `get_tomorrow_homework`
-- `get_homework_for_date`
-- `get_tomorrow_schedule`
-- `get_schedule_for_date`
-- `get_profile_summary`
-- `get_profile_details`
-- `get_notice_attachment_link`
-- `get_student_attachment_link`
-- `get_payment_receipt`
-- `get_scrutiny_grades`
-- `get_meetings`
-- `get_taxes`
-- `get_pcto`
-- `get_recovery_courses`
-- `get_curriculum`
-- `get_notice_board_history`
-- `get_student_notice_board_history`
+| Tool | Input | Description |
+|---|---|---|
+| `get_tomorrow_homework` | — | Homework due tomorrow (Europe/Rome) |
+| `get_homework_for_date` | `date: YYYY-MM-DD` | Homework due on a specific date |
+| `get_tomorrow_schedule` | — | School timetable for tomorrow |
+| `get_schedule_for_date` | `date: YYYY-MM-DD` | School timetable for a specific date |
+| `get_profile_summary` | — | Student name, class, school, guardian |
+| `get_profile_details` | — | Full student and guardian profile |
+| `get_scrutiny_grades` | — | Period grades / scrutiny results |
+| `get_meetings` | — | Teacher meeting slots and bookings |
+| `get_taxes` | `pkScheda?` | School fees and payments |
+| `get_pcto` | `pkScheda?` | PCTO (work-school alternation) data |
+| `get_recovery_courses` | `pkScheda?` | Recovery course records |
+| `get_curriculum` | `pkScheda?` | Student curriculum |
+| `get_notice_board_history` | `pkScheda?` | School notice board history |
+| `get_student_notice_board_history` | `pkScheda?` | Student-specific notice board history |
+| `get_notice_attachment_link` | `uid` | Download URL for a notice attachment |
+| `get_student_attachment_link` | `uid`, `pkScheda?` | Download URL for a student attachment |
+| `get_payment_receipt` | `iuv` | Payment receipt by IUV code |
+
+`pkScheda` is optional for all tools that accept it — when omitted it defaults to the primary student on the account.
 
 ## REST endpoints
 
-- `GET /health`
-- `GET /api/profile/summary`
-- `GET /api/profile/details`
-- `GET /api/homework/tomorrow`
-- `GET /api/homework/:date`
-- `GET /api/schedule/tomorrow`
-- `GET /api/schedule/:date`
-- `GET /api/meetings`
-- `GET /api/scrutiny-grades`
-- `GET /api/taxes?pkScheda=...`
-- `GET /api/pcto?pkScheda=...`
-- `GET /api/recovery-courses?pkScheda=...`
-- `GET /api/curriculum?pkScheda=...`
-- `GET /api/notice-board/history?pkScheda=...`
-- `GET /api/student-notice-board/history?pkScheda=...`
-- `GET /api/attachments/notice/:uid`
-- `GET /api/attachments/student/:uid?pkScheda=...`
-- `GET /api/payment-receipt/:iuv`
+All dates must be `YYYY-MM-DD`.
 
-Dates must be `YYYY-MM-DD`.
+```
+GET /health
+GET /api/profile/summary
+GET /api/profile/details
+GET /api/homework/tomorrow
+GET /api/homework/:date
+GET /api/schedule/tomorrow
+GET /api/schedule/:date
+GET /api/meetings
+GET /api/scrutiny-grades
+GET /api/taxes?pkScheda=...
+GET /api/pcto?pkScheda=...
+GET /api/recovery-courses?pkScheda=...
+GET /api/curriculum?pkScheda=...
+GET /api/notice-board/history?pkScheda=...
+GET /api/student-notice-board/history?pkScheda=...
+GET /api/attachments/notice/:uid
+GET /api/attachments/student/:uid?pkScheda=...
+GET /api/payment-receipt/:iuv
+```
+
+## Tests
+
+```bash
+npm test
+```
+
+## License
+
+MIT
