@@ -126,12 +126,14 @@ export function extractHomeworkDueOnDate(
 
 export function formatHomeworkSummary(result: TomorrowHomeworkResult): string {
   if (result.count === 0) {
-    return `No homework due on ${result.date}.`;
+    return `## Homework due on ${result.date}\n\nNo assignments.`;
   }
 
-  const lines = result.items.map(
-    (item) => `- ${item.subject}: ${item.assignment}`,
+  const header = `## Homework due on ${result.date} (${result.count})\n`;
+  const tableHeader = `| Subject | Teacher | Assignment |\n|---------|---------|------------|`;
+  const rows = result.items.map(
+    (item) => `| ${item.subject} | ${item.teacher} | ${item.assignment} |`,
   );
 
-  return [`Homework due on ${result.date}: ${result.count}`, ...lines].join("\n");
+  return [header, tableHeader, ...rows].join("\n");
 }
