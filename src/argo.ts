@@ -200,6 +200,54 @@ export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: 
   };
 }
 
+export async function getRicevimentoDocenti(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getRicevimentoDocenti(pkScheda);
+}
+
+export async function getDisponibilitaDocente(pkDocente: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getDisponibilitaDocente(pkDocente, pkScheda);
+}
+
+export async function addRicevimento(
+  pkDisponibilita: string,
+  pkGenitore: string,
+  telefono: string,
+  email: string,
+  pkScheda?: string,
+) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.addRicevimento(pkDisponibilita, pkGenitore, telefono, email, pkScheda);
+}
+
+export async function updateRicevimento(
+  pkPrenotazione: string,
+  pkDisponibilita: string,
+  telefono: string,
+  email: string,
+  pkScheda?: string,
+) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.updateRicevimento(pkPrenotazione, pkDisponibilita, telefono, email, pkScheda);
+}
+
+export async function deleteRicevimento(pkPrenotazione: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.deleteRicevimento(pkPrenotazione, pkScheda);
+}
+
+export async function getOrarioLezioni(pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+  return argoClient.getOrarioLezioni(pkScheda);
+}
+
 export async function confirmNoticeBoardRead(prgMessaggio: string, allegatoUid: string, pkScheda?: string) {
   const argoClient = client ?? await initArgoClient();
   await argoClient.login();

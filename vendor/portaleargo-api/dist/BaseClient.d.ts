@@ -569,6 +569,13 @@ export abstract class BaseClient {
 		return result;
 	}
 
+	async getRicevimentoDocenti(pkScheda?: string): Promise<import("./types").APIRicevimentoDocenti>;
+	async getDisponibilitaDocente(pkDocente: string, pkScheda?: string): Promise<import("./types").APIDisponibilitaDocente>;
+	async addRicevimento(pkDisponibilita: string, pkGenitore: string, telefono: string, email: string, pkScheda?: string): Promise<import("./types").APIRicevimentoAzione>;
+	async updateRicevimento(pkPrenotazione: string, pkDisponibilita: string, telefono: string, email: string, pkScheda?: string): Promise<import("./types").APIRicevimentoAzione>;
+	async deleteRicevimento(pkPrenotazione: string, pkScheda?: string): Promise<import("./types").APIRicevimentoAzione>;
+	async getOrarioLezioni(pkScheda?: string): Promise<import("./types").APIOrarioLezioni>;
+
 	/**
 	 * Ottieni i dati della dashboard.
 	 * @returns La dashboard
