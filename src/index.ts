@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
+  confirmStudentNoticeRead,
   getCurriculumData,
   getDefaultPkScheda,
   getMeetings,
@@ -276,9 +277,39 @@ export function createServer() {
   );
 
   server.registerTool(
+    "get_bacheca",
+    {
+      description: "Get the real school notice board: circulars, notices, events, attachments, and read-confirmation status. This is the tool to use for bacheca/avvisi/circolari.",
+      inputSchema: z.object({
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkScheda }) => {
+      const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+      const items = await getNoticeBoardHistory(resolvedPkScheda);
+      return toolResult("Bacheca", { pkScheda: resolvedPkScheda, items, count: items.length });
+    },
+  );
+
+  server.registerTool(
+    "get_student_documents_history",
+    {
+      description: "Get student-specific documents published in bacheca alunno, typically pagelle/pagellini/report-card PDFs. Do not use for general bacheca/circolari/avvisi.",
+      inputSchema: z.object({
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkScheda }) => {
+      const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+      const items = await getStudentNoticeBoardHistory(resolvedPkScheda);
+      return toolResult("Student documents history", { pkScheda: resolvedPkScheda, items, count: items.length });
+    },
+  );
+
+  server.registerTool(
     "get_notice_board_history",
     {
-      description: "Get notice-board history for a specific scheda.",
+      description: "Get the real school notice-board history (circolari/avvisi/eventi) for a specific scheda. Prefer get_bacheca for user-facing bacheca requests.",
       inputSchema: z.object({
         pkScheda: pkSchedaSchema.optional(),
       }),
@@ -293,7 +324,7 @@ export function createServer() {
   server.registerTool(
     "get_student_notice_board_history",
     {
-      description: "Get student notice-board history for a specific scheda.",
+      description: "Deprecated/ambiguous: get student-specific documents, usually pagelle/pagellini/report cards. Do not use for general bacheca; use get_bacheca instead.",
       inputSchema: z.object({
         pkScheda: pkSchedaSchema.optional(),
       }),
@@ -301,7 +332,22 @@ export function createServer() {
     async ({ pkScheda }) => {
       const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
       const items = await getStudentNoticeBoardHistory(resolvedPkScheda);
-      return toolResult("Student notice board history", { pkScheda: resolvedPkScheda, items, count: items.length });
+      return toolResult("Student documents history", { pkScheda: resolvedPkScheda, items, count: items.length });
+    },
+  );
+
+  server.registerTool(
+    "confirm_student_notice_read",
+    {
+      description: "Confirm read / presa visione for a student-specific bacheca item. Warning: storicobachecaalunno often contains pagelle/pagellini, not general circolari.",
+      inputSchema: z.object({
+        prgMessaggio: z.string().min(1, "prgMessaggio is required"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ prgMessaggio, pkScheda }) => {
+      const result = await confirmStudentNoticeRead(prgMessaggio, pkScheda);
+      return toolResult("Student notice read confirmation", result);
     },
   );
 

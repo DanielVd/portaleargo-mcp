@@ -4,6 +4,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import express, { type Request, type Response } from "express";
 import { ZodError } from "zod";
 import {
+  confirmStudentNoticeRead,
   getCurriculumData,
   getDefaultPkScheda,
   getMeetings,
@@ -181,6 +182,15 @@ function createApp() {
     }
   });
 
+  app.post("/api/student-notice-board/:prgMessaggio/read", async (req, res) => {
+    try {
+      const pkScheda = getPkSchedaQuery(req) ?? getPkSchedaBody(req);
+      res.json(await confirmStudentNoticeRead(req.params.prgMessaggio, pkScheda));
+    } catch (error) {
+      handleApiError(res, error);
+    }
+  });
+
   app.get("/api/attachments/notice/:uid", async (req, res) => {
     try {
       res.json({ uid: req.params.uid, url: await getNoticeAttachmentLink(req.params.uid) });
@@ -253,6 +263,14 @@ function createApp() {
 
 function getPkSchedaQuery(req: Request) {
   const value = req.query.pkScheda;
+  if (typeof value !== "string" || value.trim() === "") {
+    return undefined;
+  }
+  return value;
+}
+
+function getPkSchedaBody(req: Request) {
+  const value = (req.body as { pkScheda?: unknown } | undefined)?.pkScheda;
   if (typeof value !== "string" || value.trim() === "") {
     return undefined;
   }

@@ -167,7 +167,8 @@ export async function getCurriculumData(pkScheda?: string) {
 export async function getNoticeBoardHistory(pkScheda: string) {
   const argoClient = client ?? await initArgoClient();
   await argoClient.login();
-  return argoClient.getStoricoBacheca(pkScheda);
+  const items = await argoClient.getStoricoBacheca(pkScheda);
+  return items.map(normalizeNoticeBoardItem);
 }
 
 export async function getStudentNoticeBoardHistory(pkScheda: string) {
@@ -176,9 +177,66 @@ export async function getStudentNoticeBoardHistory(pkScheda: string) {
   return argoClient.getStoricoBachecaAlunno(pkScheda);
 }
 
+export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+
+  const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+  const response = await argoClient.apiRequest<{ success: boolean; msg?: string | null }>("presavisionebachecaalunno", {
+    body: {
+      pkScheda: resolvedPkScheda,
+      prgMessaggio,
+    },
+  });
+
+  if (!response.success) {
+    throw new Error(response.msg ?? "Could not confirm student notice read status");
+  }
+
+  return {
+    ok: true,
+    pkScheda: resolvedPkScheda,
+    prgMessaggio,
+  };
+}
+
 export async function getDefaultPkScheda() {
   const profile = await getProfile();
   return profile.scheda.pk;
+}
+
+type NoticeAttachment = {
+  pk?: string;
+  url?: string | null;
+  path?: string | null;
+  [key: string]: unknown;
+};
+
+type NoticeBoardItem = {
+  listaAllegati?: NoticeAttachment[];
+  [key: string]: unknown;
+};
+
+function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
+  if (!Array.isArray(item.listaAllegati)) {
+    return item;
+  }
+
+  return {
+    ...item,
+    listaAllegati: item.listaAllegati.map(({ pk, url: _rawStorageUrl, path: _rawStoragePath, ...attachment }) => ({
+      ...attachment,
+      pk,
+      uid: pk,
+      download: pk
+        ? {
+            tool: "get_notice_attachment_link",
+            uid: pk,
+            note: "Use this MCP tool to get a valid authenticated download link; do not use raw S3/AWS storage URLs.",
+          }
+        : undefined,
+    })),
+  };
 }
 
 function toSafeErrorMessage(error: unknown): string {
