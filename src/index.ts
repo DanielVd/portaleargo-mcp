@@ -4,23 +4,29 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
+  addRicevimento,
   confirmNoticeBoardRead,
   confirmStudentNoticeRead,
+  deleteRicevimento,
   getCurriculumData,
   getDefaultPkScheda,
+  getDisponibilitaDocente,
   getMeetings,
   getNoticeAttachmentLink,
   getNoticeBoardHistory,
+  getOrarioLezioni,
   getPaymentReceipt,
   getPcto,
   getProfile,
   getProfileDetails,
   getRecoveryCourses,
+  getRicevimentoDocenti,
   getScheduleForDate,
   getScrutinyGrades,
   getStudentAttachmentLink,
   getStudentNoticeBoardHistory,
   getTaxes,
+  updateRicevimento,
   readArgoEnv,
   refreshDashboard,
 } from "./argo.js";
@@ -231,6 +237,103 @@ export function createServer() {
       inputSchema: z.object({}),
     },
     async () => toolResult("Meetings", await getMeetings()),
+  );
+
+  server.registerTool(
+    "get_ricevimento_docenti",
+    {
+      description: "Get list of teachers with their meeting availability slots. Use this before booking a meeting to find available teachers and slots. May not be available for all schools.",
+      inputSchema: z.object({
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkScheda }) => {
+      const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+      const result = await getRicevimentoDocenti(resolvedPkScheda);
+      return toolResult("Teachers with availability", result);
+    },
+  );
+
+  server.registerTool(
+    "get_disponibilita_docente",
+    {
+      description: "Get available meeting slots for a specific teacher. Use pkDocente from get_ricevimento_docenti. May not be available for all schools.",
+      inputSchema: z.object({
+        pkDocente: z.string().min(1, "pkDocente is required"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkDocente, pkScheda }) => {
+      const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+      const result = await getDisponibilitaDocente(pkDocente, resolvedPkScheda);
+      return toolResult("Teacher availability", result);
+    },
+  );
+
+  server.registerTool(
+    "add_ricevimento",
+    {
+      description: "Book a teacher meeting. Requires pkDisponibilita (from get_disponibilita_docente), pkGenitore (from get_meetings genitoreOAlunno array), telefono, and email. The meeting will be booked in your name.",
+      inputSchema: z.object({
+        pkDisponibilita: z.string().min(1, "pkDisponibilita is required"),
+        pkGenitore: z.string().min(1, "pkGenitore is required"),
+        telefono: z.string().min(1, "telefono is required"),
+        email: z.string().email("email must be a valid email address"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkDisponibilita, pkGenitore, telefono, email, pkScheda }) => {
+      const result = await addRicevimento(pkDisponibilita, pkGenitore, telefono, email, pkScheda);
+      return toolResult("Booking confirmation", result);
+    },
+  );
+
+  server.registerTool(
+    "update_ricevimento",
+    {
+      description: "Modify an existing teacher meeting booking. Requires pkPrenotazione (from get_meetings prenotazioni array) and the new pkDisponibilita slot.",
+      inputSchema: z.object({
+        pkPrenotazione: z.string().min(1, "pkPrenotazione is required"),
+        pkDisponibilita: z.string().min(1, "pkDisponibilita is required"),
+        telefono: z.string().min(1, "telefono is required"),
+        email: z.string().email("email must be a valid email address"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkPrenotazione, pkDisponibilita, telefono, email, pkScheda }) => {
+      const result = await updateRicevimento(pkPrenotazione, pkDisponibilita, telefono, email, pkScheda);
+      return toolResult("Booking update confirmation", result);
+    },
+  );
+
+  server.registerTool(
+    "delete_ricevimento",
+    {
+      description: "Cancel an existing teacher meeting booking. Requires pkPrenotazione from get_meetings prenotazioni array.",
+      inputSchema: z.object({
+        pkPrenotazione: z.string().min(1, "pkPrenotazione is required"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkPrenotazione, pkScheda }) => {
+      const result = await deleteRicevimento(pkPrenotazione, pkScheda);
+      return toolResult("Booking cancellation confirmation", result);
+    },
+  );
+
+  server.registerTool(
+    "get_orario_lezioni",
+    {
+      description: "Get the weekly/periodic lesson timetable. Different from get_schedule_for_date (which is the daily teacher schedule). May not be available for all schools.",
+      inputSchema: z.object({
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ pkScheda }) => {
+      const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+      const result = await getOrarioLezioni(resolvedPkScheda);
+      return toolResult("Lesson timetable", result);
+    },
   );
 
   server.registerTool(
