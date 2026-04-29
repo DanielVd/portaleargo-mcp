@@ -108,9 +108,12 @@ mcpServers:
 | `get_pcto` | `pkScheda?` | PCTO (work-school alternation) data |
 | `get_recovery_courses` | `pkScheda?` | Recovery course records |
 | `get_curriculum` | `pkScheda?` | Student curriculum |
-| `get_notice_board_history` | `pkScheda?` | School notice board history |
-| `get_student_notice_board_history` | `pkScheda?` | Student-specific notice board history |
-| `get_notice_attachment_link` | `uid` | Download URL for a notice attachment |
+| `get_bacheca` | `pkScheda?` | Real school notice board: circolari/avvisi/eventi; attachments expose `uid` for `get_notice_attachment_link` |
+| `get_notice_board_history` | `pkScheda?` | Same data as `get_bacheca` (legacy name) |
+| `get_student_documents_history` | `pkScheda?` | Student documents, usually pagelle/pagellini PDFs |
+| `get_student_notice_board_history` | `pkScheda?` | Legacy ambiguous name for student documents/pagelle |
+| `confirm_student_notice_read` | `prgMessaggio`, `pkScheda?` | Confirm read / presa visione for a student notice |
+| `get_notice_attachment_link` | `uid` | Authenticated download URL for a notice attachment; use attachment `uid`/`pk`, not raw AWS URLs |
 | `get_student_attachment_link` | `uid`, `pkScheda?` | Download URL for a student attachment |
 | `get_payment_receipt` | `iuv` | Payment receipt by IUV code |
 
@@ -134,8 +137,9 @@ GET /api/taxes?pkScheda=...
 GET /api/pcto?pkScheda=...
 GET /api/recovery-courses?pkScheda=...
 GET /api/curriculum?pkScheda=...
-GET /api/notice-board/history?pkScheda=...
-GET /api/student-notice-board/history?pkScheda=...
+GET /api/notice-board/history?pkScheda=...              # bacheca: circolari/avvisi/eventi
+GET /api/student-notice-board/history?pkScheda=...      # documenti alunno: spesso pagelle/pagellini
+POST /api/student-notice-board/:prgMessaggio/read
 GET /api/attachments/notice/:uid
 GET /api/attachments/student/:uid?pkScheda=...
 GET /api/payment-receipt/:iuv
