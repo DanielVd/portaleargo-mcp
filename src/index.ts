@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
+  confirmNoticeBoardRead,
   confirmStudentNoticeRead,
   getCurriculumData,
   getDefaultPkScheda,
@@ -336,29 +337,36 @@ export function createServer() {
     },
   );
 
-  const confirmNoticeReadSchema = z.object({
+  const confirmBachecaNoticeReadSchema = z.object({
+    prgMessaggio: z.string().min(1).optional(),
+    pk: z.string().min(1).optional(),
+    noticePk: z.string().min(1).optional(),
+    allegatoUid: z.string().min(1).optional(),
+    pkScheda: pkSchedaSchema.optional(),
+  });
+
+  const confirmStudentNoticeReadSchema = z.object({
     prgMessaggio: z.string().min(1).optional(),
     pk: z.string().min(1).optional(),
     noticePk: z.string().min(1).optional(),
     pkScheda: pkSchedaSchema.optional(),
   });
 
-  async function confirmNoticeRead(input: z.infer<typeof confirmNoticeReadSchema>) {
-    const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
-    if (!prgMessaggio) {
-      throw new Error("Missing notice id: pass pk from get_student_documents_history. Note: generic bacheca items (circolari) from get_bacheca cannot be confirmed — only student-specific documents (pagelle) can.");
-    }
-    return confirmStudentNoticeRead(prgMessaggio, input.pkScheda);
-  }
-
   server.registerTool(
     "confirm_bacheca_notice_read",
     {
-      description: "Confirm presa visione/read status for student-specific bacheca documents (pagelle, pagellini, report cards) from get_student_documents_history. IMPORTANT: This does NOT work for generic bacheca items (circolari, avvisi, eventi) from get_bacheca — the Argo family API has no endpoint for those. Use the pk from get_student_documents_history items only.",
-      inputSchema: confirmNoticeReadSchema,
+      description: "Confirm presa visione/read status for a generic bacheca notice (circolari, avvisi, eventi) from get_bacheca. Requires prgMessaggio (the notice pk) and allegatoUid (pk of any allegato from listaAllegati). The get_bacheca response includes a confirmPresaVisione object with these values pre-filled for unread items. For student-specific documents (pagelle) use confirm_student_notice_read instead.",
+      inputSchema: confirmBachecaNoticeReadSchema,
     },
     async (input) => {
-      const result = await confirmNoticeRead(input);
+      const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
+      if (!prgMessaggio) {
+        throw new Error("Missing notice id: pass prgMessaggio or pk from get_bacheca confirmPresaVisione object.");
+      }
+      if (!input.allegatoUid) {
+        throw new Error("Missing allegatoUid: pass the pk of any allegato from the notice's listaAllegati. The Argo API requires downloading an allegato before confirming presa visione.");
+      }
+      const result = await confirmNoticeBoardRead(prgMessaggio, input.allegatoUid, input.pkScheda);
       return toolResult("Bacheca notice read confirmation", result);
     },
   );
@@ -366,11 +374,15 @@ export function createServer() {
   server.registerTool(
     "confirm_student_notice_read",
     {
-      description: "Confirm presa visione/read status for student-specific bacheca documents (pagelle/report cards) from get_student_documents_history. IMPORTANT: Does NOT work for generic bacheca items (circolari, avvisi) from get_bacheca — no Argo API endpoint exists for those.",
-      inputSchema: confirmNoticeReadSchema,
+      description: "Confirm presa visione/read status for student-specific bacheca documents (pagelle, pagellini, report cards) from get_student_documents_history. Use the pk from get_student_documents_history items. For generic bacheca (circolari, avvisi) use confirm_bacheca_notice_read instead.",
+      inputSchema: confirmStudentNoticeReadSchema,
     },
     async (input) => {
-      const result = await confirmNoticeRead(input);
+      const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
+      if (!prgMessaggio) {
+        throw new Error("Missing notice id: pass pk from get_student_documents_history.");
+      }
+      const result = await confirmStudentNoticeRead(prgMessaggio, input.pkScheda);
       return toolResult("Bacheca notice read confirmation", result);
     },
   );
