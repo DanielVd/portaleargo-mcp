@@ -200,6 +200,14 @@ export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: 
   };
 }
 
+export async function confirmNoticeBoardRead(prgMessaggio: string, allegatoUid: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  await argoClient.login();
+
+  const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+  return argoClient.confirmPresaVisioneBacheca(resolvedPkScheda, prgMessaggio, allegatoUid);
+}
+
 export async function getDefaultPkScheda() {
   const profile = await getProfile();
   return profile.scheda.pk;
@@ -218,36 +226,50 @@ type NoticeBoardItem = {
 };
 
 function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
-  // prgMessaggio/noticePk are intentionally omitted: the presavisionebachecaalunno endpoint
-  // returns HTTP 500 for generic bacheca items (storicobacheca). There is no known API endpoint
-  // to confirm presa visione for school circulars/notices via the family app credentials.
-  // Only bacheca alunno items (from get_student_documents_history) can be confirmed.
   const pvRichiesta = typeof item.pvRichiesta === "boolean" ? item.pvRichiesta : false;
+  const pk = typeof item.pk === "string" ? item.pk : undefined;
   const normalizedItem = {
     ...item,
-    ...(pvRichiesta
-      ? { pvConfirmNote: "Presa visione cannot be confirmed via this API for generic bacheca items. The Argo family app API does not expose an endpoint for this. Only student-specific documents (pagelle) from get_student_documents_history can be confirmed." }
-      : {}),
+    prgMessaggio: pk,
+    noticePk: pk,
   };
 
   if (!Array.isArray(item.listaAllegati)) {
-    return normalizedItem;
+    return {
+      ...normalizedItem,
+      ...(pvRichiesta && !item.isPresaVisione
+        ? { pvConfirmNote: "pvRichiesta=true but no allegati: cannot confirm presa visione (API requires downloading at least one allegato first)." }
+        : {}),
+    };
   }
 
+  const allegati = item.listaAllegati.map(({ pk: aPk, url: _rawStorageUrl, path: _rawStoragePath, ...attachment }) => ({
+    ...attachment,
+    pk: aPk,
+    uid: aPk,
+    download: aPk
+      ? {
+          tool: "get_notice_attachment_link",
+          uid: aPk,
+          note: "Use this MCP tool to get a valid authenticated download link; do not use raw S3/AWS storage URLs.",
+        }
+      : undefined,
+  }));
+
+  const firstAllegatoUid = allegati[0]?.uid;
   return {
     ...normalizedItem,
-    listaAllegati: item.listaAllegati.map(({ pk, url: _rawStorageUrl, path: _rawStoragePath, ...attachment }) => ({
-      ...attachment,
-      pk,
-      uid: pk,
-      download: pk
-        ? {
-            tool: "get_notice_attachment_link",
-            uid: pk,
-            note: "Use this MCP tool to get a valid authenticated download link; do not use raw S3/AWS storage URLs.",
-          }
-        : undefined,
-    })),
+    listaAllegati: allegati,
+    ...(pvRichiesta && !item.isPresaVisione && firstAllegatoUid
+      ? {
+          confirmPresaVisione: {
+            tool: "confirm_bacheca_notice_read",
+            prgMessaggio: pk,
+            allegatoUid: firstAllegatoUid,
+            note: "Use this tool with prgMessaggio and allegatoUid to confirm presa visione.",
+          },
+        }
+      : {}),
   };
 }
 
