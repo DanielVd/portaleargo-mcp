@@ -218,10 +218,16 @@ type NoticeBoardItem = {
 };
 
 function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
+  // prgMessaggio/noticePk are intentionally omitted: the presavisionebachecaalunno endpoint
+  // returns HTTP 500 for generic bacheca items (storicobacheca). There is no known API endpoint
+  // to confirm presa visione for school circulars/notices via the family app credentials.
+  // Only bacheca alunno items (from get_student_documents_history) can be confirmed.
+  const pvRichiesta = typeof item.pvRichiesta === "boolean" ? item.pvRichiesta : false;
   const normalizedItem = {
     ...item,
-    prgMessaggio: typeof item.pk === "string" ? item.pk : undefined,
-    noticePk: typeof item.pk === "string" ? item.pk : undefined,
+    ...(pvRichiesta
+      ? { pvConfirmNote: "Presa visione cannot be confirmed via this API for generic bacheca items. The Argo family app API does not expose an endpoint for this. Only student-specific documents (pagelle) from get_student_documents_history can be confirmed." }
+      : {}),
   };
 
   if (!Array.isArray(item.listaAllegati)) {

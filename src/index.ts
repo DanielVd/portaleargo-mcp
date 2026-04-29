@@ -346,7 +346,7 @@ export function createServer() {
   async function confirmNoticeRead(input: z.infer<typeof confirmNoticeReadSchema>) {
     const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
     if (!prgMessaggio) {
-      throw new Error("Missing notice id: pass prgMessaggio, pk, or noticePk from get_bacheca.");
+      throw new Error("Missing notice id: pass pk from get_student_documents_history. Note: generic bacheca items (circolari) from get_bacheca cannot be confirmed — only student-specific documents (pagelle) can.");
     }
     return confirmStudentNoticeRead(prgMessaggio, input.pkScheda);
   }
@@ -354,7 +354,7 @@ export function createServer() {
   server.registerTool(
     "confirm_bacheca_notice_read",
     {
-      description: "Confirm presa visione/read status for a bacheca notice. Use prgMessaggio, pk, or noticePk from get_bacheca.",
+      description: "Confirm presa visione/read status for student-specific bacheca documents (pagelle, pagellini, report cards) from get_student_documents_history. IMPORTANT: This does NOT work for generic bacheca items (circolari, avvisi, eventi) from get_bacheca — the Argo family API has no endpoint for those. Use the pk from get_student_documents_history items only.",
       inputSchema: confirmNoticeReadSchema,
     },
     async (input) => {
@@ -366,7 +366,7 @@ export function createServer() {
   server.registerTool(
     "confirm_student_notice_read",
     {
-      description: "Legacy alias: confirm presa visione/read status. Use prgMessaggio, pk, or noticePk from get_bacheca.",
+      description: "Confirm presa visione/read status for student-specific bacheca documents (pagelle/report cards) from get_student_documents_history. IMPORTANT: Does NOT work for generic bacheca items (circolari, avvisi) from get_bacheca — no Argo API endpoint exists for those.",
       inputSchema: confirmNoticeReadSchema,
     },
     async (input) => {
