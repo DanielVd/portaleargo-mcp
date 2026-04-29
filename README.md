@@ -112,7 +112,8 @@ mcpServers:
 | `get_notice_board_history` | `pkScheda?` | Same data as `get_bacheca` (legacy name) |
 | `get_student_documents_history` | `pkScheda?` | Student documents, usually pagelle/pagellini PDFs |
 | `get_student_notice_board_history` | `pkScheda?` | Legacy ambiguous name for student documents/pagelle |
-| `confirm_student_notice_read` | `prgMessaggio`, `pkScheda?` | Confirm read / presa visione for a student notice |
+| `confirm_bacheca_notice_read` | `prgMessaggio`/`pk`/`noticePk`, `pkScheda?` | Confirm read / presa visione for a bacheca notice |
+| `confirm_student_notice_read` | `prgMessaggio`/`pk`/`noticePk`, `pkScheda?` | Legacy alias for read confirmation |
 | `get_notice_attachment_link` | `uid` | Authenticated download URL for a notice attachment; use attachment `uid`/`pk`, not raw AWS URLs |
 | `get_student_attachment_link` | `uid`, `pkScheda?` | Download URL for a student attachment |
 | `get_payment_receipt` | `iuv` | Payment receipt by IUV code |

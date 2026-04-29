@@ -14,6 +14,7 @@ test("createServer registers expected tools", async () => {
   const toolNames = Object.keys(server._registeredTools).sort();
 
   assert.deepEqual(toolNames, [
+    "confirm_bacheca_notice_read",
     "confirm_student_notice_read",
     "get_bacheca",
     "get_curriculum",

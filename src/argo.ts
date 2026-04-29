@@ -218,12 +218,18 @@ type NoticeBoardItem = {
 };
 
 function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
+  const normalizedItem = {
+    ...item,
+    prgMessaggio: typeof item.pk === "string" ? item.pk : undefined,
+    noticePk: typeof item.pk === "string" ? item.pk : undefined,
+  };
+
   if (!Array.isArray(item.listaAllegati)) {
-    return item;
+    return normalizedItem;
   }
 
   return {
-    ...item,
+    ...normalizedItem,
     listaAllegati: item.listaAllegati.map(({ pk, url: _rawStorageUrl, path: _rawStoragePath, ...attachment }) => ({
       ...attachment,
       pk,

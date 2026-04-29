@@ -336,18 +336,42 @@ export function createServer() {
     },
   );
 
+  const confirmNoticeReadSchema = z.object({
+    prgMessaggio: z.string().min(1).optional(),
+    pk: z.string().min(1).optional(),
+    noticePk: z.string().min(1).optional(),
+    pkScheda: pkSchedaSchema.optional(),
+  });
+
+  async function confirmNoticeRead(input: z.infer<typeof confirmNoticeReadSchema>) {
+    const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
+    if (!prgMessaggio) {
+      throw new Error("Missing notice id: pass prgMessaggio, pk, or noticePk from get_bacheca.");
+    }
+    return confirmStudentNoticeRead(prgMessaggio, input.pkScheda);
+  }
+
+  server.registerTool(
+    "confirm_bacheca_notice_read",
+    {
+      description: "Confirm presa visione/read status for a bacheca notice. Use prgMessaggio, pk, or noticePk from get_bacheca.",
+      inputSchema: confirmNoticeReadSchema,
+    },
+    async (input) => {
+      const result = await confirmNoticeRead(input);
+      return toolResult("Bacheca notice read confirmation", result);
+    },
+  );
+
   server.registerTool(
     "confirm_student_notice_read",
     {
-      description: "Confirm read / presa visione for a student-specific bacheca item. Warning: storicobachecaalunno often contains pagelle/pagellini, not general circolari.",
-      inputSchema: z.object({
-        prgMessaggio: z.string().min(1, "prgMessaggio is required"),
-        pkScheda: pkSchedaSchema.optional(),
-      }),
+      description: "Legacy alias: confirm presa visione/read status. Use prgMessaggio, pk, or noticePk from get_bacheca.",
+      inputSchema: confirmNoticeReadSchema,
     },
-    async ({ prgMessaggio, pkScheda }) => {
-      const result = await confirmStudentNoticeRead(prgMessaggio, pkScheda);
-      return toolResult("Student notice read confirmation", result);
+    async (input) => {
+      const result = await confirmNoticeRead(input);
+      return toolResult("Bacheca notice read confirmation", result);
     },
   );
 
