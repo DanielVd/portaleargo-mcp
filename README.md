@@ -1,4 +1,5 @@
 # portaleargo-mcp
+[![Latest Release](https://img.shields.io/github/v/release/DanielVd/portaleargo-mcp)](https://github.com/DanielVd/portaleargo-mcp/releases/latest)
 
 ## Table of Contents
 
@@ -41,5 +42,4 @@
 ## License
 
 ## Existing Notes
-
 
