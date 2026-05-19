@@ -1,45 +1,45 @@
 # portaleargo-mcp
+
 [![Latest Release](https://img.shields.io/github/v/release/DanielVd/portaleargo-mcp)](https://github.com/DanielVd/portaleargo-mcp/releases/latest)
+
+MCP server for Portale Argo automation workflows.
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [Commands/Tools](#commandstools)
 - [Troubleshooting](#troubleshooting)
-- [Security Notes](#security-notes)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Overview
-
-> Update with 1-2 sentence project purpose.
 
 ## Features
 
-> Key capabilities list.
+- MCP tools for Portale Argo tasks
+- Automation-oriented interface for AI clients
 
 ## Requirements
 
+- Node.js 18+
+
 ## Installation
+
+```bash
+npm install
+npm run build
+```
 
 ## Quick Start
 
+```bash
+npm start
+```
+
 ## Configuration
 
-## Commands/Tools
+Configure credentials and endpoints via environment variables.
 
 ## Troubleshooting
 
-## Security Notes
-
-## Contributing
-
-## License
-
-## Existing Notes
-
+- auth failures: verify credentials
+- connection errors: verify endpoint URL/network
