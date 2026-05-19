@@ -1,6 +1,7 @@
 # portaleargo-mcp
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/DanielVd/portaleargo-mcp)](https://github.com/DanielVd/portaleargo-mcp/releases/latest)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org/)
 
 Read-only MCP server for **Argo ScuolaNext** built in TypeScript. Exposes homework, timetables, grades, meetings, taxes, PCTO, and more through three interfaces:
