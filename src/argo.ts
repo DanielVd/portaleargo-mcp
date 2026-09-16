@@ -200,52 +200,52 @@ export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: 
   };
 }
 
-export async function getRicevimentoDocenti(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.getRicevimentoDocenti(pkScheda);
+export async function getRicevimentoDocenti() {
+  const meetings = await getMeetings();
+
+  const teachers = new Map<
+    string,
+    {
+      pk: string;
+      desNome: string;
+      desCognome: string;
+      desEmail: string | null;
+      disponibilitaCount: number;
+    }
+  >();
+
+  for (const slots of Object.values(meetings.disponibilita)) {
+    for (const slot of slots) {
+      const docente = slot.docente;
+      const existing = teachers.get(docente.pk);
+
+      if (existing) {
+        existing.disponibilitaCount += 1;
+      } else {
+        teachers.set(docente.pk, {
+          pk: docente.pk,
+          desNome: docente.desNome,
+          desCognome: docente.desCognome,
+          desEmail: docente.desEmail,
+          disponibilitaCount: 1,
+        });
+      }
+    }
+  }
+
+  return [...teachers.values()].sort((a, b) =>
+    `${a.desCognome} ${a.desNome}`.localeCompare(`${b.desCognome} ${b.desNome}`, "it"),
+  );
 }
 
-export async function getDisponibilitaDocente(pkDocente: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.getDisponibilitaDocente(pkDocente, pkScheda);
-}
+export async function getDisponibilitaDocente(pkDocente: string) {
+  const meetings = await getMeetings();
 
-export async function addRicevimento(
-  pkDisponibilita: string,
-  pkGenitore: string,
-  telefono: string,
-  email: string,
-  pkScheda?: string,
-) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.addRicevimento(pkDisponibilita, pkGenitore, telefono, email, pkScheda);
-}
+  const disponibilita = Object.values(meetings.disponibilita)
+    .flat()
+    .filter((slot) => slot.docente.pk === pkDocente);
 
-export async function updateRicevimento(
-  pkPrenotazione: string,
-  pkDisponibilita: string,
-  telefono: string,
-  email: string,
-  pkScheda?: string,
-) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.updateRicevimento(pkPrenotazione, pkDisponibilita, telefono, email, pkScheda);
-}
-
-export async function deleteRicevimento(pkPrenotazione: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.deleteRicevimento(pkPrenotazione, pkScheda);
-}
-
-export async function getOrarioLezioni(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-  return argoClient.getOrarioLezioni(pkScheda);
+  return disponibilita;
 }
 
 export async function confirmNoticeBoardRead(prgMessaggio: string, allegatoUid: string, pkScheda?: string) {

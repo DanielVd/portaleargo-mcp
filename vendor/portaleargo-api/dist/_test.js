@@ -346,6 +346,19 @@ var BaseClient = class _BaseClient {
     return download.url;
   }
   /**
+   * Scarica un allegato della bacheca.
+   *
+   * Il link restituito da Argo è temporaneo, quindi viene richiesto e
+   * consumato immediatamente.
+   *
+   * @param uid - L'uid dell'allegato
+   * @returns La risposta HTTP contenente il file
+   */
+  async downloadAllegato(uid2) {
+    const url = await this.getLinkAllegato(uid2);
+    return this.downloadSignedUrl(url);
+  }
+  /**
    * Ottieni il link per scaricare un allegato della bacheca alunno.
    * @param uid - l'uid dell'allegato
    * @param pkScheda - L'id del profilo
@@ -359,6 +372,20 @@ var BaseClient = class _BaseClient {
     );
     if (!download.success) throw new Error(download.msg);
     return download.url;
+  }
+  /**
+   * Scarica un allegato della bacheca alunno.
+   *
+   * Il link restituito da Argo è temporaneo, quindi viene richiesto e
+   * consumato immediatamente.
+   *
+   * @param uid - L'uid dell'allegato
+   * @param pkScheda - L'id del profilo
+   * @returns La risposta HTTP contenente il file
+   */
+  async downloadAllegatoStudente(uid2, pkScheda = this.profile?.scheda.pk) {
+    const url = await this.getLinkAllegatoStudente(uid2, pkScheda);
+    return this.downloadSignedUrl(url);
   }
   /**
    * Ottieni i dati di una ricevuta telematica.
@@ -488,6 +515,29 @@ var BaseClient = class _BaseClient {
     return handleOperation(bacheca.data.bachecaAlunno);
   }
   /**
+   * Conferma la presa visione di un avviso della bacheca.
+   *
+   * Argo richiede il download di almeno un allegato prima della conferma.
+   * L'allegato viene quindi scaricato realmente tramite il relativo URL
+   * firmato prima di chiamare `presavisioneadesione`.
+   *
+   * @param pkScheda - L'id del profilo
+   * @param prgMessaggio - Il pk dell'avviso
+   * @param allegatoUid - Il pk di un allegato dell'avviso
+   * @returns Il risultato della conferma
+   */
+  async confirmPresaVisioneBacheca(pkScheda, prgMessaggio, allegatoUid) {
+    this.checkReady();
+    const attachment = await this.downloadAllegato(allegatoUid);
+    await attachment.arrayBuffer();
+    const result = await this.apiRequest(
+      "presavisioneadesione",
+      { body: { pkScheda, prgMessaggio } }
+    );
+    if (!result.success) throw new Error(result.message ?? result.msg ?? "Presa visione fallita");
+    return result;
+  }
+  /**
    * Ottieni i dati della dashboard.
    * @returns La dashboard
    */
@@ -555,6 +605,17 @@ var BaseClient = class _BaseClient {
     );
     void this.dataProvider?.write("dashboard", this.dashboard);
     return this.dashboard;
+  }
+  /**
+   * Scarica immediatamente un URL firmato restituito da Argo.
+   */
+  async downloadSignedUrl(url) {
+    const response = await this.fetch(url);
+    if (!response.ok)
+      throw new Error(
+        `Attachment download failed: HTTP ${response.status} ${response.statusText}`
+      );
+    return response;
   }
   async getProfilo() {
     const profile = await this.apiRequest("profilo");
@@ -629,7 +690,7 @@ var BaseClient = class _BaseClient {
 // src/util/getCode.ts
 import { CookieAgent } from "http-cookie-agent/undici";
 import { ok } from "node:assert";
-import { URL, URLSearchParams as URLSearchParams2 } from "node:url";
+import { URL as URL2, URLSearchParams as URLSearchParams2 } from "node:url";
 import { CookieJar } from "tough-cookie";
 import { interceptors, request } from "undici";
 var getCode = /* @__PURE__ */ __name(async (credentials) => {
@@ -645,7 +706,7 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
   );
   const url = (await request(link.url, { dispatcher, maxRedirections: 0 })).headers.location;
   ok(typeof url === "string", "Invalid login url");
-  const challenge = new URL(url).searchParams.get("login_challenge");
+  const challenge = new URL2(url).searchParams.get("login_challenge");
   ok(challenge, "Invalid login challenge");
   const { location } = await request(
     "https://www.portaleargo.it/auth/sso/login",
@@ -664,7 +725,7 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
     }
   ).then((r) => r.headers);
   ok(typeof location === "string", "Invalid login redirect");
-  const code = new URL(location).searchParams.get("code");
+  const code = new URL2(location).searchParams.get("code");
   ok(code, "Invalid login code");
   return { ...link, code };
 }, "getCode");
@@ -750,10 +811,14 @@ var Client = class _Client extends BaseClient {
     };
   }
   createFetch() {
-    return (info, init) => fetch2(info, {
-      dispatcher: this.dispatcher,
-      ...init
-    });
+    return (info, init) => {
+      const requestInfo = info;
+      const requestUrl = typeof requestInfo === "string" ? new URL(requestInfo, BaseClient.BASE_URL) : requestInfo instanceof URL ? requestInfo : new URL(requestInfo.url);
+      return fetch2(requestInfo, {
+        ...requestUrl.origin === BaseClient.BASE_URL ? { dispatcher: this.dispatcher } : {},
+        ...init
+      });
+    };
   }
   async getCode() {
     if ([
@@ -771,6 +836,14 @@ console.time();
 var client = new Client({ debug: true });
 await client.login();
 var uid = client.dashboard?.bacheca.find((e) => e.listaAllegati.length)?.listaAllegati[0]?.pk;
+if (uid) {
+  const response = await client.downloadAllegato(uid);
+  const data = await response.arrayBuffer();
+  if (!data.byteLength) throw new Error("Downloaded attachment is empty");
+  console.log(
+    `Attachment download OK: ${response.status} ${response.headers.get("content-type") ?? "unknown"} ${data.byteLength} bytes`
+  );
+}
 await Promise.allSettled([
   client.getCorsiRecupero(),
   client.getCurriculum().then(
@@ -784,8 +857,7 @@ await Promise.allSettled([
   client.getPCTOData(),
   client.getRicevimenti(),
   client.getTasse(),
-  client.getVotiScrutinio(),
-  uid && client.getLinkAllegato(uid)
+  client.getVotiScrutinio()
 ]);
 await client.logOut();
 console.timeEnd();

@@ -331,6 +331,19 @@ var _BaseClient = class _BaseClient {
     return download.url;
   }
   /**
+   * Scarica un allegato della bacheca.
+   *
+   * Il link restituito da Argo è temporaneo, quindi viene richiesto e
+   * consumato immediatamente.
+   *
+   * @param uid - L'uid dell'allegato
+   * @returns La risposta HTTP contenente il file
+   */
+  async downloadAllegato(uid) {
+    const url = await this.getLinkAllegato(uid);
+    return this.downloadSignedUrl(url);
+  }
+  /**
    * Ottieni il link per scaricare un allegato della bacheca alunno.
    * @param uid - l'uid dell'allegato
    * @param pkScheda - L'id del profilo
@@ -344,6 +357,20 @@ var _BaseClient = class _BaseClient {
     );
     if (!download.success) throw new Error(download.msg);
     return download.url;
+  }
+  /**
+   * Scarica un allegato della bacheca alunno.
+   *
+   * Il link restituito da Argo è temporaneo, quindi viene richiesto e
+   * consumato immediatamente.
+   *
+   * @param uid - L'uid dell'allegato
+   * @param pkScheda - L'id del profilo
+   * @returns La risposta HTTP contenente il file
+   */
+  async downloadAllegatoStudente(uid, pkScheda = this.profile?.scheda.pk) {
+    const url = await this.getLinkAllegatoStudente(uid, pkScheda);
+    return this.downloadSignedUrl(url);
   }
   /**
    * Ottieni i dati di una ricevuta telematica.
@@ -473,6 +500,29 @@ var _BaseClient = class _BaseClient {
     return handleOperation(bacheca.data.bachecaAlunno);
   }
   /**
+   * Conferma la presa visione di un avviso della bacheca.
+   *
+   * Argo richiede il download di almeno un allegato prima della conferma.
+   * L'allegato viene quindi scaricato realmente tramite il relativo URL
+   * firmato prima di chiamare `presavisioneadesione`.
+   *
+   * @param pkScheda - L'id del profilo
+   * @param prgMessaggio - Il pk dell'avviso
+   * @param allegatoUid - Il pk di un allegato dell'avviso
+   * @returns Il risultato della conferma
+   */
+  async confirmPresaVisioneBacheca(pkScheda, prgMessaggio, allegatoUid) {
+    this.checkReady();
+    const attachment = await this.downloadAllegato(allegatoUid);
+    await attachment.arrayBuffer();
+    const result = await this.apiRequest(
+      "presavisioneadesione",
+      { body: { pkScheda, prgMessaggio } }
+    );
+    if (!result.success) throw new Error(result.message ?? result.msg ?? "Presa visione fallita");
+    return result;
+  }
+  /**
    * Ottieni i dati della dashboard.
    * @returns La dashboard
    */
@@ -540,6 +590,17 @@ var _BaseClient = class _BaseClient {
     );
     void this.dataProvider?.write("dashboard", this.dashboard);
     return this.dashboard;
+  }
+  /**
+   * Scarica immediatamente un URL firmato restituito da Argo.
+   */
+  async downloadSignedUrl(url) {
+    const response = await this.fetch(url);
+    if (!response.ok)
+      throw new Error(
+        `Attachment download failed: HTTP ${response.status} ${response.statusText}`
+      );
+    return response;
   }
   async getProfilo() {
     const profile = await this.apiRequest("profilo");

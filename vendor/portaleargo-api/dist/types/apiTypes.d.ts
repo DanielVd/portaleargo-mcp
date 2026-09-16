@@ -607,3 +607,9 @@ export type APIRicevutaTelematica = {
 };
 export type APIBacheca = APIResponse<Pick<APIDashboard["data"]["dati"][number], "bacheca">>;
 export type APIBachecaAlunno = APIResponse<Pick<APIDashboard["data"]["dati"][number], "bachecaAlunno">>;
+export type APIPresavisioneAdesione = {
+    [key: string]: Json;
+    success: boolean;
+    msg?: string | null;
+    message?: string | null;
+};
