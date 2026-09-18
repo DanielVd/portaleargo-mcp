@@ -89,6 +89,8 @@ justify_attendance_events
 
 Automated CI does not execute mutating tools.
 
+A separate `Manual Famiglia mutation E2E` GitHub Actions workflow is available through `workflow_dispatch`. It requires the explicit acknowledgement `RUN_MUTATION_E2E`, starts the built MCP server over STDIO, selects an already-read bulletin with an attachment, invokes `confirm_bacheca_notice_read` through the MCP protocol, and re-reads the bulletin to verify `isPresaVisione=true`. It therefore exercises the production chain without changing an unread notice to read.
+
 ## PCTO
 
 PCTO remains available through the compatibility path exposed by `portaleargo-api`.
