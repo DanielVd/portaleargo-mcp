@@ -24,7 +24,7 @@ export type OrarioItem = {
   materia: string;
   desDenominazione: string;
   desSezione: string;
-  ora: string | null;
+  ora?: string | null;
 };
 
 export function extractScheduleForDate(

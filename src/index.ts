@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import {
+  confirmDisciplinaryNoteRead,
   confirmNoticeBoardRead,
   confirmStudentNoticeRead,
   getCurriculumData,
@@ -23,8 +24,10 @@ import {
   getStudentAttachmentLink,
   getStudentNoticeBoardHistory,
   getTaxes,
+  justifyAttendanceEvents,
   readArgoEnv,
   refreshDashboard,
+  toggleNoticeBoardAdhesion,
 } from "./argo.js";
 import {
   extractHomeworkDueOnDate,
@@ -369,7 +372,6 @@ export function createServer() {
     prgMessaggio: z.string().min(1).optional(),
     pk: z.string().min(1).optional(),
     noticePk: z.string().min(1).optional(),
-    allegatoUid: z.string().min(1).optional(),
     pkScheda: pkSchedaSchema.optional(),
   });
 
@@ -383,7 +385,7 @@ export function createServer() {
   server.registerTool(
     "confirm_bacheca_notice_read",
     {
-      description: "Confirm presa visione/read status for a generic bacheca notice (circolari, avvisi, eventi) from get_bacheca. Requires prgMessaggio (the notice pk) and allegatoUid (pk of any allegato from listaAllegati). The get_bacheca response includes a confirmPresaVisione object with these values pre-filled for unread items. For student-specific documents (pagelle) use confirm_student_notice_read instead.",
+      description: "Confirm presa visione/read status for a generic bacheca notice (circolari, avvisi, eventi) from get_bacheca. Requires only the notice id; the Famiglia API no longer requires downloading an attachment first. For student-specific documents (pagelle) use confirm_student_notice_read instead.",
       inputSchema: confirmBachecaNoticeReadSchema,
     },
     async (input) => {
@@ -391,12 +393,65 @@ export function createServer() {
       if (!prgMessaggio) {
         throw new Error("Missing notice id: pass prgMessaggio or pk from get_bacheca confirmPresaVisione object.");
       }
-      if (!input.allegatoUid) {
-        throw new Error("Missing allegatoUid: pass the pk of any allegato from the notice's listaAllegati. The Argo API requires downloading an allegato before confirming presa visione.");
-      }
-      const result = await confirmNoticeBoardRead(prgMessaggio, input.allegatoUid, input.pkScheda);
+      const result = await confirmNoticeBoardRead(prgMessaggio, input.pkScheda);
       return toolResult("Bacheca notice read confirmation", result);
     },
+  );
+
+  const toggleBachecaAdhesionSchema = z.object({
+    prgMessaggio: z.string().min(1).optional(),
+    pk: z.string().min(1).optional(),
+    noticePk: z.string().min(1).optional(),
+    pkScheda: pkSchedaSchema.optional(),
+  });
+
+  const confirmNoteReadSchema = z.object({
+    pk: z.string().min(1, "note pk is required"),
+  });
+
+  const justifyAttendanceSchema = z.object({
+    assenze: z.array(z.string().min(1)).min(1, "at least one attendance event is required"),
+    datGiorno: isoDateSchema,
+    descrizione: z.string().min(1, "description is required"),
+  });
+
+  server.registerTool(
+    "toggle_bacheca_notice_adhesion",
+    {
+      description: "Toggle adesione for a generic bacheca notice. This is mutative: if the notice is not confirmed it confirms adhesion; if already confirmed it removes adhesion.",
+      inputSchema: toggleBachecaAdhesionSchema,
+    },
+    async (input) => {
+      const prgMessaggio = input.prgMessaggio ?? input.pk ?? input.noticePk;
+      if (!prgMessaggio) {
+        throw new Error("Missing notice id: pass prgMessaggio or pk from get_bacheca.");
+      }
+      const result = await toggleNoticeBoardAdhesion(prgMessaggio, input.pkScheda);
+      return toolResult("Bacheca notice adhesion", result);
+    },
+  );
+
+  server.registerTool(
+    "confirm_disciplinary_note_read",
+    {
+      description: "Confirm presa visione/read status for a disciplinary note. This changes the note read state.",
+      inputSchema: confirmNoteReadSchema,
+    },
+    async ({ pk }) =>
+      toolResult("Disciplinary note read confirmation", await confirmDisciplinaryNoteRead(pk)),
+  );
+
+  server.registerTool(
+    "justify_attendance_events",
+    {
+      description: "Justify one or more attendance events for a given day with a description. This changes attendance/justification data in Argo.",
+      inputSchema: justifyAttendanceSchema,
+    },
+    async ({ assenze, datGiorno, descrizione }) =>
+      toolResult(
+        "Attendance justification",
+        await justifyAttendanceEvents(assenze, datGiorno, descrizione),
+      ),
   );
 
   server.registerTool(

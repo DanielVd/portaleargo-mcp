@@ -179,25 +179,48 @@ export async function getStudentNoticeBoardHistory(pkScheda: string) {
 
 export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: string) {
   const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
-  const response = await argoClient.apiRequest<{ success: boolean; msg?: string | null }>("presavisionebachecaalunno", {
-    body: {
-      pkScheda: resolvedPkScheda,
-      prgMessaggio,
-    },
-  });
-
-  if (!response.success) {
-    throw new Error(response.msg ?? "Could not confirm student notice read status");
-  }
+  const response = await argoClient.confirmPresaVisioneBachecaAlunno(prgMessaggio);
 
   return {
     ok: true,
     pkScheda: resolvedPkScheda,
     prgMessaggio,
+    response,
   };
+}
+
+type MeetingTeacher = {
+  pk: string;
+  desNome: string;
+  desCognome: string;
+  desEmail: string | null;
+};
+
+type MeetingSlot = {
+  docente: MeetingTeacher;
+  [key: string]: unknown;
+};
+
+function isMeetingSlot(value: unknown): value is MeetingSlot {
+  if (!value || typeof value !== "object") return false;
+
+  const docente = (value as { docente?: unknown }).docente;
+  if (!docente || typeof docente !== "object") return false;
+
+  const teacher = docente as Record<string, unknown>;
+  return (
+    typeof teacher.pk === "string" &&
+    typeof teacher.desNome === "string" &&
+    typeof teacher.desCognome === "string" &&
+    (typeof teacher.desEmail === "string" || teacher.desEmail === null)
+  );
+}
+
+function extractMeetingSlots(disponibilita: Record<string, unknown>): MeetingSlot[] {
+  return Object.values(disponibilita).flatMap((value) =>
+    Array.isArray(value) ? value.filter(isMeetingSlot) : [],
+  );
 }
 
 export async function getRicevimentoDocenti() {
@@ -214,22 +237,20 @@ export async function getRicevimentoDocenti() {
     }
   >();
 
-  for (const slots of Object.values(meetings.disponibilita)) {
-    for (const slot of slots) {
-      const docente = slot.docente;
-      const existing = teachers.get(docente.pk);
+  for (const slot of extractMeetingSlots(meetings.disponibilita)) {
+    const docente = slot.docente;
+    const existing = teachers.get(docente.pk);
 
-      if (existing) {
-        existing.disponibilitaCount += 1;
-      } else {
-        teachers.set(docente.pk, {
-          pk: docente.pk,
-          desNome: docente.desNome,
-          desCognome: docente.desCognome,
-          desEmail: docente.desEmail,
-          disponibilitaCount: 1,
-        });
-      }
+    if (existing) {
+      existing.disponibilitaCount += 1;
+    } else {
+      teachers.set(docente.pk, {
+        pk: docente.pk,
+        desNome: docente.desNome,
+        desCognome: docente.desCognome,
+        desEmail: docente.desEmail,
+        disponibilitaCount: 1,
+      });
     }
   }
 
@@ -241,19 +262,35 @@ export async function getRicevimentoDocenti() {
 export async function getDisponibilitaDocente(pkDocente: string) {
   const meetings = await getMeetings();
 
-  const disponibilita = Object.values(meetings.disponibilita)
-    .flat()
-    .filter((slot) => slot.docente.pk === pkDocente);
-
-  return disponibilita;
+  return extractMeetingSlots(meetings.disponibilita).filter(
+    (slot) => slot.docente.pk === pkDocente,
+  );
 }
 
-export async function confirmNoticeBoardRead(prgMessaggio: string, allegatoUid: string, pkScheda?: string) {
+export async function confirmNoticeBoardRead(prgMessaggio: string, pkScheda?: string) {
   const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
-
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
-  return argoClient.confirmPresaVisioneBacheca(resolvedPkScheda, prgMessaggio, allegatoUid);
+  return argoClient.confirmPresaVisioneBacheca(resolvedPkScheda, prgMessaggio);
+}
+
+export async function toggleNoticeBoardAdhesion(prgMessaggio: string, pkScheda?: string) {
+  const argoClient = client ?? await initArgoClient();
+  const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
+  return argoClient.togglePresaAdesioneBacheca(resolvedPkScheda, prgMessaggio);
+}
+
+export async function confirmDisciplinaryNoteRead(pk: string) {
+  const argoClient = client ?? await initArgoClient();
+  return argoClient.confirmPresaVisioneNota(pk);
+}
+
+export async function justifyAttendanceEvents(
+  assenze: string[],
+  datGiorno: string,
+  descrizione: string,
+) {
+  const argoClient = client ?? await initArgoClient();
+  return argoClient.giustificaEventi(assenze, datGiorno, descrizione);
 }
 
 export async function getDefaultPkScheda() {
@@ -285,8 +322,23 @@ function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
   if (!Array.isArray(item.listaAllegati)) {
     return {
       ...normalizedItem,
-      ...(pvRichiesta && !item.isPresaVisione
-        ? { pvConfirmNote: "pvRichiesta=true but no allegati: cannot confirm presa visione (API requires downloading at least one allegato first)." }
+      ...(pvRichiesta && !item.isPresaVisione && pk
+        ? {
+            confirmPresaVisione: {
+              tool: "confirm_bacheca_notice_read",
+              prgMessaggio: pk,
+              note: "Use this tool with prgMessaggio to confirm presa visione.",
+            },
+          }
+        : {}),
+      ...(item.adRichiesta && pk
+        ? {
+            togglePresaAdesione: {
+              tool: "toggle_bacheca_notice_adhesion",
+              prgMessaggio: pk,
+              currentlyConfirmed: item.isPresaAdesioneConfermata === true,
+            },
+          }
         : {}),
     };
   }
@@ -304,17 +356,24 @@ function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
       : undefined,
   }));
 
-  const firstAllegatoUid = allegati[0]?.uid;
   return {
     ...normalizedItem,
     listaAllegati: allegati,
-    ...(pvRichiesta && !item.isPresaVisione && firstAllegatoUid
+    ...(pvRichiesta && !item.isPresaVisione && pk
       ? {
           confirmPresaVisione: {
             tool: "confirm_bacheca_notice_read",
             prgMessaggio: pk,
-            allegatoUid: firstAllegatoUid,
-            note: "Use this tool with prgMessaggio and allegatoUid to confirm presa visione.",
+            note: "Use this tool with prgMessaggio to confirm presa visione.",
+          },
+        }
+      : {}),
+    ...(item.adRichiesta && pk
+      ? {
+          togglePresaAdesione: {
+            tool: "toggle_bacheca_notice_adhesion",
+            prgMessaggio: pk,
+            currentlyConfirmed: item.isPresaAdesioneConfermata === true,
           },
         }
       : {}),
