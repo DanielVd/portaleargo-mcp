@@ -83,7 +83,7 @@ confirm_disciplinary_note_read
 justify_attendance_events
 ```
 
-`confirm_bacheca_notice_read` no longer requires an attachment UID. The Famiglia API accepts the notice identifier directly.
+`confirm_bacheca_notice_read` does not require callers to pass an attachment UID. The canonical API resolves an attachment from the notice, downloads it, and only then confirms read status because the Famiglia backend requires at least one attachment download.
 
 `toggle_bacheca_notice_adhesion` is intentionally named as a toggle: calling it again can remove an already-confirmed adhesion.
 
