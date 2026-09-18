@@ -190,6 +190,39 @@ export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: 
   };
 }
 
+type MeetingTeacher = {
+  pk: string;
+  desNome: string;
+  desCognome: string;
+  desEmail: string | null;
+};
+
+type MeetingSlot = {
+  docente: MeetingTeacher;
+  [key: string]: unknown;
+};
+
+function isMeetingSlot(value: unknown): value is MeetingSlot {
+  if (!value || typeof value !== "object") return false;
+
+  const docente = (value as { docente?: unknown }).docente;
+  if (!docente || typeof docente !== "object") return false;
+
+  const teacher = docente as Record<string, unknown>;
+  return (
+    typeof teacher.pk === "string" &&
+    typeof teacher.desNome === "string" &&
+    typeof teacher.desCognome === "string" &&
+    (typeof teacher.desEmail === "string" || teacher.desEmail === null)
+  );
+}
+
+function extractMeetingSlots(disponibilita: Record<string, unknown>): MeetingSlot[] {
+  return Object.values(disponibilita).flatMap((value) =>
+    Array.isArray(value) ? value.filter(isMeetingSlot) : [],
+  );
+}
+
 export async function getRicevimentoDocenti() {
   const meetings = await getMeetings();
 
@@ -204,22 +237,20 @@ export async function getRicevimentoDocenti() {
     }
   >();
 
-  for (const slots of Object.values(meetings.disponibilita)) {
-    for (const slot of slots) {
-      const docente = slot.docente;
-      const existing = teachers.get(docente.pk);
+  for (const slot of extractMeetingSlots(meetings.disponibilita)) {
+    const docente = slot.docente;
+    const existing = teachers.get(docente.pk);
 
-      if (existing) {
-        existing.disponibilitaCount += 1;
-      } else {
-        teachers.set(docente.pk, {
-          pk: docente.pk,
-          desNome: docente.desNome,
-          desCognome: docente.desCognome,
-          desEmail: docente.desEmail,
-          disponibilitaCount: 1,
-        });
-      }
+    if (existing) {
+      existing.disponibilitaCount += 1;
+    } else {
+      teachers.set(docente.pk, {
+        pk: docente.pk,
+        desNome: docente.desNome,
+        desCognome: docente.desCognome,
+        desEmail: docente.desEmail,
+        disponibilitaCount: 1,
+      });
     }
   }
 
@@ -231,11 +262,9 @@ export async function getRicevimentoDocenti() {
 export async function getDisponibilitaDocente(pkDocente: string) {
   const meetings = await getMeetings();
 
-  const disponibilita = Object.values(meetings.disponibilita)
-    .flat()
-    .filter((slot) => slot.docente.pk === pkDocente);
-
-  return disponibilita;
+  return extractMeetingSlots(meetings.disponibilita).filter(
+    (slot) => slot.docente.pk === pkDocente,
+  );
 }
 
 export async function confirmNoticeBoardRead(prgMessaggio: string, pkScheda?: string) {
