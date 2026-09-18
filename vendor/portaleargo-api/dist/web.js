@@ -165,6 +165,102 @@ var _BaseClient = class _BaseClient {
     if (this.debug) console.debug(`${options.method} /${path} ${res.status}`);
     return options.noWait ? res : res.json();
   }
+  async famigliaRequest(path, options = {}) {
+    const headers = {
+      accept: "application/json",
+      "argo-client-version": _BaseClient.FAMIGLIA_VERSION,
+      "os-type": "WEB",
+      authorization: `Bearer ${this.token?.access_token ?? ""}`
+    };
+    options.method ?? (options.method = options.body ? "POST" : "GET");
+    if (options.body != null)
+      headers["content-type"] = "application/json";
+    if (this.apiSession) {
+      headers["x-auth-token"] = this.apiSession.token;
+      headers["x-cod-min"] = this.apiSession.codMin;
+    }
+    if (this.headers) Object.assign(headers, this.headers);
+    const res = await this.fetch(
+      `${_BaseClient.FAMIGLIA_BASE_URL}/${path}`,
+      {
+        headers,
+        method: options.method,
+        body: options.body != null ? JSON.stringify(options.body) : void 0
+      }
+    );
+    if (this.debug)
+      console.debug(
+        `${options.method} ${_BaseClient.FAMIGLIA_BASE_URL}/${path} ${res.status}`
+      );
+    return options.noWait ? res : res.json();
+  }
+  /**
+   * Inizializza la sessione applicativa della API Famiglia
+   * utilizzando il Bearer OAuth già ottenuto dal client.
+   */
+  async bootstrapSession() {
+    await this.refreshToken();
+    const login = await this.famigliaRequest("login", {
+      method: "POST",
+      body: {}
+    });
+    if (!login.success)
+      throw new Error(
+        login.message ?? login.msg ?? "Famiglia API login failed"
+      );
+    const [apiSession] = login.data;
+    if (!apiSession) throw new Error("Famiglia API login returned no session");
+    this.apiSession = apiSession;
+    return apiSession;
+  }
+  /**
+   * Recupera il profilo dalla API Famiglia.
+   */
+  async getProfilo() {
+    if (!this.apiSession) await this.bootstrapSession();
+    const profile = await this.famigliaRequest("profilo");
+    if (!profile.success)
+      throw new Error(
+        profile.message ?? profile.msg ?? "Famiglia profile request failed"
+      );
+    this.famigliaProfile = profile.data;
+    return this.famigliaProfile;
+  }
+  /**
+   * Recupera la dashboard dalla API Famiglia.
+   */
+  async getDashboard() {
+    if (!this.apiSession) await this.bootstrapSession();
+    if (!this.famigliaProfile) await this.getProfilo();
+    const dashboard = await this.famigliaRequest(
+      "dashboard/dashboard",
+      {
+        method: "POST",
+        body: {
+          dataultimoaggiornamento: formatDate(
+            this.famigliaProfile.anno.dataInizio
+          ),
+          opzioni: JSON.stringify(
+            Object.fromEntries(
+              this.apiSession.opzioni.map(({ chiave, valore }) => [
+                chiave,
+                valore
+              ])
+            )
+          )
+        }
+      }
+    );
+    if (!dashboard.success)
+      throw new Error(
+        dashboard.message ?? dashboard.msg ?? "Famiglia dashboard request failed"
+      );
+    const [data] = dashboard.data.dati;
+    if (!data)
+      throw new Error("Famiglia dashboard returned no data");
+    this.famigliaDashboard = data;
+    return data;
+  }
   /**
    * Effettua il login.
    * @returns Il client aggiornato
@@ -195,14 +291,14 @@ var _BaseClient = class _BaseClient {
         }
         __privateSet(this, _ready, true);
         if (whatData.mostraPallino || !this.dashboard)
-          await this.getDashboard();
+          await this.getLegacyDashboard();
         this.aggiornaData().catch(console.error);
         return this;
       }
     }
-    if (!this.profile) await this.getProfilo();
+    if (!this.profile) await this.getLegacyProfilo();
     __privateSet(this, _ready, true);
-    await this.getDashboard();
+    await this.getLegacyDashboard();
     return this;
   }
   /**
@@ -245,7 +341,7 @@ var _BaseClient = class _BaseClient {
           "exp-bearer": formatDate(this.token.expireDate),
           "ts-app": formatDate(date),
           proc: "initState_global_random_12345",
-          username: this.loginData?.username
+          username: this.loginData?.username ?? this.credentials?.username
         },
         noWait: true
       });
@@ -282,38 +378,52 @@ var _BaseClient = class _BaseClient {
     delete this.loginData;
     delete this.profile;
     delete this.dashboard;
+    delete this.apiSession;
+    delete this.famigliaProfile;
+    delete this.famigliaDashboard;
   }
   /**
    * Ottieni i dettagli del profilo dello studente.
    * @returns I dati
    */
   async getDettagliProfilo(old) {
-    this.checkReady();
-    const body = await this.apiRequest("dettaglioprofilo", {
-      method: "POST"
-    });
-    if (!body.success) throw new Error(body.msg);
+    if (!this.apiSession) await this.bootstrapSession();
+    const body = await this.famigliaRequest(
+      "dettaglioprofilo",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    if (!body.success)
+      throw new Error(
+        body.message ?? body.msg ?? "Famiglia profile details request failed"
+      );
     return Object.assign(old ?? {}, body.data);
   }
   /**
    * Ottieni l'orario giornaliero.
    * @param date - Il giorno dell'orario
-   * @returns I dati
+   * @returns Le lezioni della giornata
    */
   async getOrarioGiornaliero(date) {
-    this.checkReady();
+    if (!this.apiSession) await this.bootstrapSession();
     const now = /* @__PURE__ */ new Date();
-    const orario = await this.apiRequest(
-      "orario-giorno",
+    const orario = await this.famigliaRequest(
+      "famiglia/orario-giorno",
       {
+        method: "POST",
         body: {
           datGiorno: formatDate(
-            `${date?.year ?? now.getFullYear()}-${date?.month ?? now.getMonth() + 1}-${date?.day ?? now.getDate() + 1}`
+            `${date?.year ?? now.getFullYear()}-${date?.month ?? now.getMonth() + 1}-${date?.day ?? now.getDate()}`
           )
         }
       }
     );
-    if (!orario.success) throw new Error(orario.msg);
+    if (!orario.success)
+      throw new Error(
+        orario.message ?? orario.msg ?? "Famiglia timetable request failed"
+      );
     return Object.values(orario.data.dati).flat();
   }
   /**
@@ -322,12 +432,18 @@ var _BaseClient = class _BaseClient {
    * @returns L'url
    */
   async getLinkAllegato(uid) {
-    this.checkReady();
-    const download = await this.apiRequest(
-      "downloadallegatobacheca",
-      { body: { uid } }
+    if (!this.apiSession) await this.bootstrapSession();
+    const download = await this.famigliaRequest(
+      "famiglia/downloadallegatobacheca",
+      {
+        method: "POST",
+        body: { uid }
+      }
     );
-    if (!download.success) throw new Error(download.msg);
+    if (!download.success)
+      throw new Error(
+        download.message ?? download.msg ?? "Famiglia attachment request failed"
+      );
     return download.url;
   }
   /**
@@ -349,13 +465,23 @@ var _BaseClient = class _BaseClient {
    * @param pkScheda - L'id del profilo
    * @returns L'url
    */
-  async getLinkAllegatoStudente(uid, pkScheda = this.profile?.scheda.pk) {
-    this.checkReady();
-    const download = await this.apiRequest(
-      "downloadallegatobachecaalunno",
-      { body: { uid, pkScheda } }
+  async getLinkAllegatoStudente(uid, pkScheda) {
+    if (!this.apiSession) await this.bootstrapSession();
+    if (!pkScheda && !this.famigliaProfile) await this.getProfilo();
+    const resolvedPkScheda = pkScheda ?? this.famigliaProfile?.scheda.pk ?? this.profile?.scheda.pk;
+    if (!resolvedPkScheda)
+      throw new Error("Student profile id is unavailable");
+    const download = await this.famigliaRequest(
+      "famiglia/downloadallegatobachecaalunno",
+      {
+        method: "POST",
+        body: { uid, pkScheda: resolvedPkScheda }
+      }
     );
-    if (!download.success) throw new Error(download.msg);
+    if (!download.success)
+      throw new Error(
+        download.message ?? download.msg ?? "Famiglia student attachment request failed"
+      );
     return download.url;
   }
   /**
@@ -378,13 +504,20 @@ var _BaseClient = class _BaseClient {
    * @returns La ricevuta
    */
   async getRicevuta(iuv) {
-    this.checkReady();
-    const ricevuta = await this.apiRequest(
-      "ricevutatelematica",
-      { body: { iuv } }
+    if (!this.apiSession) await this.bootstrapSession();
+    const ricevuta = await this.famigliaRequest(
+      "pagamenti/ricevutatelematica",
+      {
+        method: "POST",
+        body: { iuv }
+      }
     );
-    if (!ricevuta.success) throw new Error(ricevuta.msg);
-    const { success, msg, ...rest } = ricevuta;
+    if (!ricevuta.success)
+      throw new Error(
+        ricevuta.message ?? ricevuta.msg ?? "Famiglia telematic receipt request failed"
+      );
+    const { success, ...rest } = ricevuta;
+    void success;
     return rest;
   }
   /**
@@ -392,11 +525,18 @@ var _BaseClient = class _BaseClient {
    * @returns I dati
    */
   async getVotiScrutinio() {
-    this.checkReady();
-    const voti = await this.apiRequest("votiscrutinio", {
-      body: {}
-    });
-    if (!voti.success) throw new Error(voti.msg);
+    if (!this.apiSession) await this.bootstrapSession();
+    const voti = await this.famigliaRequest(
+      "famiglia/votiscrutinio",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    if (!voti.success)
+      throw new Error(
+        voti.message ?? voti.msg ?? "Famiglia scrutiny grades request failed"
+      );
     return voti.data.votiScrutinio[0]?.periodi;
   }
   /**
@@ -404,11 +544,18 @@ var _BaseClient = class _BaseClient {
    * @returns I dati
    */
   async getRicevimenti(old) {
-    this.checkReady();
-    const ricevimenti = await this.apiRequest("ricevimento", {
-      body: {}
-    });
-    if (!ricevimenti.success) throw new Error(ricevimenti.msg);
+    if (!this.apiSession) await this.bootstrapSession();
+    const ricevimenti = await this.famigliaRequest(
+      "ricevimento/load",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    if (!ricevimenti.success)
+      throw new Error(
+        ricevimenti.message ?? ricevimenti.msg ?? "Famiglia meetings request failed"
+      );
     return Object.assign(old ?? {}, ricevimenti.data);
   }
   /**
@@ -416,13 +563,27 @@ var _BaseClient = class _BaseClient {
    * @param pkScheda - L'id del profilo
    * @returns I dati
    */
-  async getTasse(pkScheda = this.profile?.scheda.pk) {
-    this.checkReady();
-    const taxes = await this.apiRequest("listatassealunni", {
-      body: { pkScheda }
-    });
-    if (!taxes.success) throw new Error(taxes.msg);
-    const { success, msg, data, ...rest } = taxes;
+  async getTasse(pkScheda) {
+    if (!this.apiSession) await this.bootstrapSession();
+    if (!pkScheda && !this.famigliaProfile) await this.getProfilo();
+    const resolvedPkScheda = pkScheda ?? this.famigliaProfile?.scheda.pk ?? this.profile?.scheda.pk;
+    if (!resolvedPkScheda)
+      throw new Error("Student profile id is unavailable");
+    const taxes = await this.famigliaRequest(
+      "pagamenti/listatassealunni",
+      {
+        method: "POST",
+        body: { pkScheda: resolvedPkScheda }
+      }
+    );
+    if (!taxes.success)
+      throw new Error(
+        taxes.message ?? taxes.msg ?? "Famiglia taxes request failed"
+      );
+    const { success, msg, message, data, ...rest } = taxes;
+    void success;
+    void msg;
+    void message;
     return {
       ...rest,
       tasse: data
@@ -446,12 +607,20 @@ var _BaseClient = class _BaseClient {
    * @param pkScheda - L'id del profilo
    * @returns I dati
    */
-  async getCorsiRecupero(pkScheda = this.profile?.scheda.pk, old) {
-    this.checkReady();
-    const courses = await this.apiRequest("corsirecupero", {
-      body: { pkScheda }
-    });
-    if (!courses.success) throw new Error(courses.msg);
+  async getCorsiRecupero(pkScheda, old) {
+    void pkScheda;
+    if (!this.apiSession) await this.bootstrapSession();
+    const courses = await this.famigliaRequest(
+      "famiglia/corsirecupero",
+      {
+        method: "POST",
+        body: {}
+      }
+    );
+    if (!courses.success)
+      throw new Error(
+        courses.message ?? courses.msg ?? "Famiglia recovery courses request failed"
+      );
     return Object.assign(old ?? {}, courses.data);
   }
   /**
@@ -459,15 +628,19 @@ var _BaseClient = class _BaseClient {
    * @param pkScheda - L'id del profilo
    * @returns I dati
    */
-  async getCurriculum(pkScheda = this.profile?.scheda.pk) {
-    this.checkReady();
-    const curriculum = await this.apiRequest(
-      "curriculumalunno",
+  async getCurriculum(pkScheda) {
+    void pkScheda;
+    if (!this.apiSession) await this.bootstrapSession();
+    const curriculum = await this.famigliaRequest(
+      "famiglia/curriculum-alunno",
       {
-        body: { pkScheda }
+        method: "GET"
       }
     );
-    if (!curriculum.success) throw new Error(curriculum.msg);
+    if (!curriculum.success)
+      throw new Error(
+        curriculum.message ?? curriculum.msg ?? "Famiglia curriculum request failed"
+      );
     return curriculum.data.curriculum;
   }
   /**
@@ -476,12 +649,19 @@ var _BaseClient = class _BaseClient {
    * @returns I dati
    */
   async getStoricoBacheca(pkScheda) {
-    this.checkReady();
-    const bacheca = await this.apiRequest("storicobacheca", {
-      body: { pkScheda }
-    });
-    if (!bacheca.success) throw new Error(bacheca.msg);
-    return handleOperation(bacheca.data.bacheca);
+    if (!this.apiSession) await this.bootstrapSession();
+    const bacheca = await this.famigliaRequest(
+      "famiglia/storicobacheca",
+      {
+        method: "POST",
+        body: { pkScheda }
+      }
+    );
+    if (!bacheca.success)
+      throw new Error(
+        bacheca.message ?? bacheca.msg ?? "Famiglia bulletin request failed"
+      );
+    return bacheca.data.bacheca.map(({ operazione, ...item }) => item);
   }
   /**
    * Ottieni lo storico della bacheca alunno.
@@ -489,44 +669,135 @@ var _BaseClient = class _BaseClient {
    * @returns I dati
    */
   async getStoricoBachecaAlunno(pkScheda) {
-    this.checkReady();
-    const bacheca = await this.apiRequest(
-      "storicobachecaalunno",
+    if (!this.apiSession) await this.bootstrapSession();
+    const bacheca = await this.famigliaRequest(
+      "famiglia/storicobachecaalunno",
       {
+        method: "POST",
         body: { pkScheda }
       }
     );
-    if (!bacheca.success) throw new Error(bacheca.msg);
-    return handleOperation(bacheca.data.bachecaAlunno);
+    if (!bacheca.success)
+      throw new Error(
+        bacheca.message ?? bacheca.msg ?? "Famiglia student bulletin request failed"
+      );
+    return bacheca.data.bachecaAlunno.filter(({ operazione }) => operazione !== "D").map(({ operazione, ...item }) => item);
   }
   /**
    * Conferma la presa visione di un avviso della bacheca.
    *
-   * Argo richiede il download di almeno un allegato prima della conferma.
-   * L'allegato viene quindi scaricato realmente tramite il relativo URL
-   * firmato prima di chiamare `presavisioneadesione`.
-   *
    * @param pkScheda - L'id del profilo
    * @param prgMessaggio - Il pk dell'avviso
-   * @param allegatoUid - Il pk di un allegato dell'avviso
+   * @param allegatoUid - Parametro legacy mantenuto per compatibilità; ignorato dalla API Famiglia
    * @returns Il risultato della conferma
    */
   async confirmPresaVisioneBacheca(pkScheda, prgMessaggio, allegatoUid) {
-    this.checkReady();
-    const attachment = await this.downloadAllegato(allegatoUid);
-    await attachment.arrayBuffer();
-    const result = await this.apiRequest(
-      "presavisioneadesione",
-      { body: { pkScheda, prgMessaggio } }
+    void allegatoUid;
+    if (!this.apiSession) await this.bootstrapSession();
+    const result = await this.famigliaRequest(
+      "famiglia/presavisione",
+      {
+        method: "POST",
+        body: { pkScheda, prgMessaggio }
+      }
     );
-    if (!result.success) throw new Error(result.message ?? result.msg ?? "Presa visione fallita");
+    if (!result.success)
+      throw new Error(
+        result.message ?? result.msg ?? "Famiglia read confirmation failed"
+      );
+    return result;
+  }
+  /**
+   * Conferma la presa visione di un documento della bacheca alunno.
+   *
+   * @param prgMessaggio - Il pk del documento
+   * @returns Il risultato della conferma
+   */
+  async confirmPresaVisioneBachecaAlunno(prgMessaggio) {
+    if (!this.apiSession) await this.bootstrapSession();
+    const result = await this.famigliaRequest(
+      "famiglia/presavisionebachecaalunno",
+      {
+        method: "POST",
+        body: { prgMessaggio }
+      }
+    );
+    if (!result.success)
+      throw new Error(
+        result.message ?? result.msg ?? "Famiglia student bulletin read confirmation failed"
+      );
+    return result;
+  }
+  /**
+   * Conferma o annulla l'adesione a un avviso della bacheca.
+   *
+   * L'endpoint ufficiale è un toggle: una seconda chiamata rimuove
+   * un'adesione già confermata.
+   */
+  async togglePresaAdesioneBacheca(pkScheda, prgMessaggio) {
+    if (!this.apiSession) await this.bootstrapSession();
+    const result = await this.famigliaRequest(
+      "famiglia/presaadesione",
+      {
+        method: "POST",
+        body: { pkScheda, prgMessaggio }
+      }
+    );
+    if (!result.success)
+      throw new Error(
+        result.message ?? result.msg ?? "Famiglia bulletin adhesion failed"
+      );
+    return result;
+  }
+  /**
+   * Conferma la presa visione di una nota disciplinare.
+   */
+  async confirmPresaVisioneNota(pk) {
+    if (!this.apiSession) await this.bootstrapSession();
+    const result = await this.famigliaRequest(
+      "famiglia/presavisionenote",
+      {
+        method: "POST",
+        body: { pk }
+      }
+    );
+    if (!result.success)
+      throw new Error(
+        result.message ?? result.msg ?? "Famiglia note read confirmation failed"
+      );
+    return result;
+  }
+  /**
+   * Giustifica uno o più eventi di appello.
+   *
+   * @param assenze - Identificativi degli eventi da giustificare
+   * @param datGiorno - Giorno della giustificazione
+   * @param descrizione - Motivazione
+   */
+  async giustificaEventi(assenze, datGiorno, descrizione) {
+    if (!this.apiSession) await this.bootstrapSession();
+    const result = await this.famigliaRequest(
+      "famiglia/giustifica",
+      {
+        method: "POST",
+        body: {
+          assenze: assenze.join("###"),
+          datGiorno,
+          descrizione
+        }
+      }
+    );
+    if (!result.success)
+      throw new Error(
+        result.message ?? result.msg ?? "Famiglia absence justification failed"
+      );
     return result;
   }
   /**
    * Ottieni i dati della dashboard.
    * @returns La dashboard
    */
-  async getDashboard() {
+  async getLegacyDashboard() {
     this.checkReady();
     const date = /* @__PURE__ */ new Date();
     const res = await this.apiRequest("dashboard/dashboard", {
@@ -602,7 +873,7 @@ var _BaseClient = class _BaseClient {
       );
     return response;
   }
-  async getProfilo() {
+  async getLegacyProfilo() {
     const profile = await this.apiRequest("profilo");
     if (!profile.success) throw new Error(profile.msg);
     this.profile = Object.assign(this.profile ?? {}, profile.data);
@@ -674,6 +945,8 @@ var _BaseClient = class _BaseClient {
 _ready = new WeakMap();
 __name(_BaseClient, "BaseClient");
 _BaseClient.BASE_URL = "https://www.portaleargo.it";
+_BaseClient.FAMIGLIA_BASE_URL = "https://didattica.portaleargo.it/famiglia/api";
+_BaseClient.FAMIGLIA_VERSION = "4.1.0";
 var BaseClient = _BaseClient;
 
 // src/WebClient.ts

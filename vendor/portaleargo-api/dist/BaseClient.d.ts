@@ -1,10 +1,12 @@
-import type { APICorsiRecupero, APIDettagliProfilo, APIPresavisioneAdesione, APILogin, APIProfilo, APIRicevimenti, ClientOptions, Credentials, Dashboard, HttpMethod, Json, LoginLink, ReadyClient, Token } from "./types";
+import type { APILogin, APIProfilo, ClientOptions, Credentials, Dashboard, HttpMethod, Json, LoginLink, FamigliaAPIDettagliProfilo, FamigliaAPIDashboard, FamigliaAPILogin, FamigliaAPIMutationResponse, FamigliaAPIProfilo, FamigliaAPIRicevimenti, FamigliaAPICorsiRecupero, ReadyClient, Token } from "./types";
 /**
  * Un client per interagire con l'API
  */
 export declare abstract class BaseClient {
     #private;
     static readonly BASE_URL = "https://www.portaleargo.it";
+    static readonly FAMIGLIA_BASE_URL = "https://didattica.portaleargo.it/famiglia/api";
+    static readonly FAMIGLIA_VERSION = "4.1.0";
     /**
      * A custom fetch implementation
      */
@@ -17,6 +19,22 @@ export declare abstract class BaseClient {
      * I dati del login
      */
     loginData?: APILogin["data"][number];
+    /**
+     * Dati della sessione applicativa della API Famiglia.
+     *
+     * Restano separati da loginData finché la migrazione non è completa.
+     */
+    apiSession?: FamigliaAPILogin["data"][number];
+    /**
+     * Profilo restituito dalla API Famiglia.
+     */
+    famigliaProfile?: FamigliaAPIProfilo["data"];
+    /**
+     * Dashboard restituita dalla API Famiglia.
+     *
+     * Resta separata da dashboard finché la migrazione non è completa.
+     */
+    famigliaDashboard?: FamigliaAPIDashboard["data"]["dati"][number];
     /**
      * I dati del profilo
      */
@@ -74,6 +92,102 @@ export declare abstract class BaseClient {
         json: () => Promise<T>;
     }>;
     /**
+     * Effettua una richiesta alla API Famiglia.
+     */
+    famigliaRequest<T extends Json>(path: string, options?: Partial<{
+        body: Json;
+        method: HttpMethod;
+        noWait: false;
+    }>): Promise<T>;
+    famigliaRequest<T extends Json>(path: string, options: {
+        body?: Json;
+        method?: HttpMethod;
+        noWait: true;
+    }): Promise<Omit<Response, "json"> & {
+        json: () => Promise<T>;
+    }>;
+    /**
+     * Inizializza la sessione applicativa della API Famiglia
+     * utilizzando il Bearer OAuth già ottenuto dal client.
+     */
+    bootstrapSession(): Promise<{
+        codMin: string;
+        opzioni: {
+            valore: boolean;
+            chiave: string;
+        }[];
+        isPrimoAccesso: boolean;
+        profiloDisabilitato: boolean;
+        isResetPassword: boolean;
+        isSpid: boolean;
+        token: string;
+        username: string;
+    }>;
+    /**
+     * Recupera il profilo dalla API Famiglia.
+     */
+    getProfilo(): Promise<{
+        resetPassword: boolean;
+        ultimoCambioPwd: string | null;
+        anno: {
+            anno: string;
+            dataInizio: string;
+            dataFine: string;
+        };
+        annoCorrente: {
+            anno: string;
+            dataInizio: string;
+            dataFine: string;
+        };
+        genitore: {
+            desEMail: string;
+            nominativo: string;
+            genitorePK: string;
+        };
+        profiloDisabilitato: boolean;
+        isSpid: boolean;
+        alunno: {
+            isUltimaClasse: boolean;
+            nominativo: string;
+            cognome: string;
+            nome: string;
+            alunnoPK: string;
+            maggiorenne: boolean;
+            desEmail: string | null;
+        };
+        scheda: {
+            pk: string;
+            anno: number;
+            aggiornaSchedaPK: boolean;
+            classe: {
+                pk: string;
+                desDenominazione: string;
+                desSezione: string;
+            };
+            sede: {
+                pk: string;
+                descrizione: string;
+            };
+            scuola: {
+                pk: string;
+                desOrdine: string;
+                descrizione: string;
+            };
+            corso: {
+                pk: string;
+                descrizione: string;
+            };
+        };
+        primoAccesso: boolean;
+        profiloStorico: boolean;
+    }>;
+    /**
+     * Recupera la dashboard dalla API Famiglia.
+     */
+    getDashboard(): Promise<{
+        [key: string]: Json;
+    }>;
+    /**
      * Effettua il login.
      * @returns Il client aggiornato
      */
@@ -105,61 +219,70 @@ export declare abstract class BaseClient {
      * Ottieni i dettagli del profilo dello studente.
      * @returns I dati
      */
-    getDettagliProfilo<T extends APIDettagliProfilo["data"]>(old?: T): Promise<{
+    getDettagliProfilo<T extends FamigliaAPIDettagliProfilo["data"]>(old?: T): Promise<{
         utente: {
             flgUtente: string;
         };
         genitore: {
-            flgSesso: string;
-            desCognome: string;
-            desEMail: string;
-            desCellulare: string | null;
-            desTelefono: string;
+            pk: string;
             desNome: string;
+            desCognome: string;
+            flgSesso: string;
             datNascita: string;
+            desTelefono: string;
+            desCellulare: string | null;
+            desEMail: string;
         };
+        titoliStudio: {
+            prgTitolo: number;
+            desTitolo: string;
+        }[];
         alunno: {
+            pk: string;
+            nome: string;
             cognome: string;
+            desEmail: string | null;
+            maggiorenne: boolean;
+            sesso: string;
+            datNascita: string;
+            desTelefono: string;
             desCellulare: string | null;
             desCf: string;
-            datNascita: string;
+            desVia: string;
             desCap: string;
             desComuneResidenza: string;
-            nome: string;
             desComuneNascita: string;
-            desCapResidenza: string;
-            cittadinanza: string;
-            desIndirizzoRecapito: string;
-            desEMail: string | null;
-            nominativo: string;
-            desVia: string;
-            desTelefono: string;
-            sesso: string;
             desComuneRecapito: string;
+            desIndirizzoRecapito: string;
+            cittadinanza: string;
+            desCapResidenza: string;
+            ultimaClasse: boolean;
         };
+        attivita: {
+            codAttivita: string;
+            desDescrizione: string;
+        }[];
     }>;
     /**
      * Ottieni l'orario giornaliero.
      * @param date - Il giorno dell'orario
-     * @returns I dati
+     * @returns Le lezioni della giornata
      */
     getOrarioGiornaliero(date?: {
         year?: number;
         month?: number;
         day?: number;
     }): Promise<{
+        scuAnagrafePK: string;
+        desNome: string;
+        desCognome: string;
+        desEmail: string;
+        docente: string;
+        desDenominazione: string;
+        desSezione: string;
+        materia: string;
         numOra: number;
         mostra: boolean;
-        desCognome: string;
-        desNome: string;
-        docente: string;
-        materia: string;
-        pk?: string;
-        scuAnagrafePK?: string;
-        desDenominazione: string;
-        desEmail: string;
-        desSezione: string;
-        ora: string | null;
     }[]>;
     /**
      * Ottieni il link per scaricare un allegato della bacheca.
@@ -183,7 +306,7 @@ export declare abstract class BaseClient {
      * @param pkScheda - L'id del profilo
      * @returns L'url
      */
-    getLinkAllegatoStudente(uid: string, pkScheda?: string | undefined): Promise<string>;
+    getLinkAllegatoStudente(uid: string, pkScheda?: string): Promise<string>;
     /**
      * Scarica un allegato della bacheca alunno.
      *
@@ -208,122 +331,33 @@ export declare abstract class BaseClient {
      * Ottieni i voti dello scrutinio dello studente.
      * @returns I dati
      */
-    getVotiScrutinio(): Promise<{
-        desDescrizione: string;
-        materie: string[];
-        suddivisione: string;
-        votiGiudizi: boolean;
-        scrutinioFinale: boolean;
-    }[] | undefined>;
+    getVotiScrutinio(): Promise<Json[] | undefined>;
     /**
      * Ottieni i dati riguardo i ricevimenti dello studente.
      * @returns I dati
      */
-    getRicevimenti<T extends APIRicevimenti["data"]>(old?: T): Promise<{
-        disponibilita: Record<string, {
-            desNota: string;
-            numMax: number;
-            docente: {
-                desCognome: string;
-                desNome: string;
-                pk: string;
-                desEmail: string | null;
-            };
-            numPrenotazioniAnnullate: number | null;
-            flgAttivo: string;
-            oraFine: string;
-            indisponibilita: string | null;
-            datInizioPrenotazione: string;
-            desUrl: string;
-            unaTantum: string;
-            oraInizioPrenotazione: string;
-            datScadenza: string;
-            desLuogoRicevimento: string;
-            oraInizio: string;
-            pk: string;
-            flgMostraEmail: string;
-            desEMailDocente: string;
-            numPrenotazioni: number;
-        }[]>;
+    getRicevimenti<T extends FamigliaAPIRicevimenti["data"]>(old?: T): Promise<{
+        disponibilita: Record<string, Json>;
         genitoreOAlunno: {
             desEMail: string;
             nominativo: string;
             pk: string;
             telefono: string;
         }[];
+        listaDisponibilita: Json[];
         tipoAccesso: string;
-        prenotazioni: {
-            operazione: string;
-            datEvento: string;
-            prenotazione: {
-                prgScuola: number;
-                datPrenotazione: string;
-                numPrenotazione: number | null;
-                prgAlunno: number;
-                genitore: string;
-                numMax: number;
-                orarioPrenotazione: string;
-                prgGenitore: number;
-                flgAnnullato: string | null;
-                flgAnnullatoDa: string | null;
-                desTelefonoGenitore: string;
-                flgTipo: string | null;
-                datAnnullamento: string | null;
-                desUrl: string | null;
-                pk: string;
-                genitorePK: string;
-                desEMailGenitore: string;
-                numPrenotazioni: number | null;
-            };
-            disponibilita: {
-                ora_Fine: string;
-                desNota: string;
-                datDisponibilita: string;
-                desUrl: string;
-                numMax: number;
-                ora_Inizio: string;
-                flgAttivo: string;
-                desLuogoRicevimento: string;
-                pk: string;
-            };
-            docente: {
-                desCognome: string;
-                desNome: string;
-                pk: string;
-                desEmail: string | null;
-            };
-        }[];
+        prenotazioni: Json[];
     }>;
     /**
      * Ottieni le tasse dello studente.
      * @param pkScheda - L'id del profilo
      * @returns I dati
      */
-    getTasse(pkScheda?: string | undefined): Promise<{
-        tasse: {
-            importoPrevisto: string;
-            dataPagamento: string | null;
-            listaSingoliPagamenti: {
-                importoTassa: string;
-                descrizione: string;
-                importoPrevisto: string;
-            }[] | null;
-            dataCreazione: string | null;
-            scadenza: string;
-            rptPresent: boolean;
-            rata: string;
-            iuv: string | null;
-            importoTassa: string;
-            stato: string;
-            descrizione: string;
-            debitore: string;
-            importoPagato: string | null;
-            pagabileOltreScadenza: boolean;
-            rtPresent: boolean;
-            isPagoOnLine: boolean;
-            status: string;
-        }[];
+    getTasse(pkScheda?: string): Promise<{
+        tasse: import("./types").FamigliaAPITassa[];
+        isPagoOnlineAttivo: boolean;
         isPagOnlineAttivo: boolean;
+        listaTasse: import("./types").FamigliaAPITassa[];
     }>;
     /**
      * Ottieni i dati del PCTO dello studente.
@@ -339,117 +373,115 @@ export declare abstract class BaseClient {
      * @param pkScheda - L'id del profilo
      * @returns I dati
      */
-    getCorsiRecupero<T extends APICorsiRecupero["data"]>(pkScheda?: string | undefined, old?: T): Promise<{
-        corsiRecupero: any[];
-        periodi: any[];
+    getCorsiRecupero<T extends FamigliaAPICorsiRecupero["data"]>(pkScheda?: string, old?: T): Promise<{
+        corsiRecupero: Json[];
+        periodi: Json[];
     }>;
     /**
      * Ottieni il curriculum dello studente.
      * @param pkScheda - L'id del profilo
      * @returns I dati
      */
-    getCurriculum(pkScheda?: string | undefined): Promise<{
+    getCurriculum(pkScheda?: string): Promise<{
         pkScheda: string;
         classe: string;
         anno: number;
-        esito: "" | {
-            esitoPK: {
-                codMin: string;
-                codEsito: string;
-            };
-            desDescrizione: string;
-            numColore: number;
-            flgPositivo: string;
-            flgTipoParticolare: string | null;
-            tipoEsito: string;
-            descrizione: string;
-            icona: string;
-            codEsito: string;
-            particolarita: string;
-            positivo: string;
-            tipoEsitoParticolare: string;
-        };
-        credito: number;
-        mostraInfo: boolean;
+        esito: Json;
         mostraCredito: boolean;
+        credito: number;
         isSuperiore: boolean;
         isInterruzioneFR: boolean;
-        media: number | null;
-        CVAbilitato: boolean;
+        media?: string;
         ordineScuola: string;
+        mostraInfo: boolean;
+        cvabilitato: boolean;
     }[]>;
     /**
      * Ottieni lo storico della bacheca.
      * @param pkScheda - L'id del profilo
      * @returns I dati
      */
-    getStoricoBacheca(pkScheda: string): Promise<Omit<{
+    getStoricoBacheca(pkScheda: string): Promise<{
         pk: string;
-    } & {
-        datEvento: string;
-        messaggio: string;
-        data: string;
-        pvRichiesta: boolean;
         categoria: string;
-        dataConfermaPresaVisione: string;
-        url: string | null;
+        messaggio: string;
         autore: string;
-        dataScadenza: string | null;
-        adRichiesta: boolean;
+        data: string;
+        dataScadenza: string;
+        url: string;
         isPresaVisione: boolean;
-        dataConfermaAdesione: string;
+        dataConfermaPresaVisione?: string;
+        isPresaAdesioneConfermata: boolean;
+        adRichiesta: boolean;
+        pvRichiesta: boolean;
         listaAllegati: {
-            nomeFile: string;
-            path: string;
-            descrizioneFile: string | null;
             pk: string;
             url: string;
+            path: string;
+            descrizioneFile: string;
+            nomeFile: string;
         }[];
-        dataScadAdesione: string | null;
-        isPresaAdesioneConfermata: boolean;
-    } & {
-        operazione?: "I";
-    }, "operazione">[]>;
+        datEvento: string;
+    }[]>;
     /**
      * Ottieni lo storico della bacheca alunno.
      * @param pkScheda - L'id del profilo
      * @returns I dati
      */
-    getStoricoBachecaAlunno(pkScheda: string): Promise<Omit<{
-        pk: string;
-    } & {
+    getStoricoBachecaAlunno(pkScheda: string): Promise<{
         nomeFile: string;
         datEvento: string;
         messaggio: string;
         data: string;
         flgDownloadGenitore: string;
         isPresaVisione: boolean;
-    } & {
-        operazione?: "I";
-    }, "operazione">[]>;
+        pk: string;
+    }[]>;
     /**
      * Conferma la presa visione di un avviso della bacheca.
      *
-     * Argo richiede il download di almeno un allegato prima della conferma.
-     * L'allegato viene quindi scaricato realmente tramite il relativo URL
-     * firmato prima di chiamare `presavisioneadesione`.
-     *
      * @param pkScheda - L'id del profilo
      * @param prgMessaggio - Il pk dell'avviso
-     * @param allegatoUid - Il pk di un allegato dell'avviso
+     * @param allegatoUid - Parametro legacy mantenuto per compatibilità; ignorato dalla API Famiglia
      * @returns Il risultato della conferma
      */
-    confirmPresaVisioneBacheca(pkScheda: string, prgMessaggio: string, allegatoUid: string): Promise<APIPresavisioneAdesione>;
+    confirmPresaVisioneBacheca(pkScheda: string, prgMessaggio: string, allegatoUid?: string): Promise<FamigliaAPIMutationResponse>;
+    /**
+     * Conferma la presa visione di un documento della bacheca alunno.
+     *
+     * @param prgMessaggio - Il pk del documento
+     * @returns Il risultato della conferma
+     */
+    confirmPresaVisioneBachecaAlunno(prgMessaggio: string): Promise<FamigliaAPIMutationResponse>;
+    /**
+     * Conferma o annulla l'adesione a un avviso della bacheca.
+     *
+     * L'endpoint ufficiale è un toggle: una seconda chiamata rimuove
+     * un'adesione già confermata.
+     */
+    togglePresaAdesioneBacheca(pkScheda: string, prgMessaggio: string): Promise<FamigliaAPIMutationResponse>;
+    /**
+     * Conferma la presa visione di una nota disciplinare.
+     */
+    confirmPresaVisioneNota(pk: string): Promise<FamigliaAPIMutationResponse>;
+    /**
+     * Giustifica uno o più eventi di appello.
+     *
+     * @param assenze - Identificativi degli eventi da giustificare
+     * @param datGiorno - Giorno della giustificazione
+     * @param descrizione - Motivazione
+     */
+    giustificaEventi(assenze: string[], datGiorno: string, descrizione: string): Promise<FamigliaAPIMutationResponse>;
     /**
      * Ottieni i dati della dashboard.
      * @returns La dashboard
      */
-    private getDashboard;
+    private getLegacyDashboard;
     /**
      * Scarica immediatamente un URL firmato restituito da Argo.
      */
     private downloadSignedUrl;
-    private getProfilo;
+    private getLegacyProfilo;
     private getLoginData;
     private logToken;
     private rimuoviProfilo;
