@@ -385,7 +385,7 @@ export function createServer() {
   server.registerTool(
     "confirm_bacheca_notice_read",
     {
-      description: "Confirm presa visione/read status for a generic bacheca notice (circolari, avvisi, eventi) from get_bacheca. Requires only the notice id; the Famiglia API no longer requires downloading an attachment first. For student-specific documents (pagelle) use confirm_student_notice_read instead.",
+      description: "Confirm presa visione/read status for a generic bacheca notice (circolari, avvisi, eventi) from get_bacheca. Requires only the notice id from the caller; the API resolves and downloads a notice attachment before confirmation as required by the Famiglia backend. For student-specific documents (pagelle) use confirm_student_notice_read instead.",
       inputSchema: confirmBachecaNoticeReadSchema,
     },
     async (input) => {
