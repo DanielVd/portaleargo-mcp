@@ -15,9 +15,11 @@ test("createServer registers expected tools", async () => {
 
   assert.deepEqual(toolNames, [
     "confirm_bacheca_notice_read",
+    "confirm_disciplinary_note_read",
     "confirm_student_notice_read",
     "get_bacheca",
     "get_curriculum",
+    "get_disponibilita_docente",
     "get_homework_for_date",
     "get_meetings",
     "get_notice_attachment_link",
@@ -27,6 +29,7 @@ test("createServer registers expected tools", async () => {
     "get_profile_details",
     "get_profile_summary",
     "get_recovery_courses",
+    "get_ricevimento_docenti",
     "get_schedule_for_date",
     "get_scrutiny_grades",
     "get_student_attachment_link",
@@ -35,5 +38,7 @@ test("createServer registers expected tools", async () => {
     "get_taxes",
     "get_tomorrow_homework",
     "get_tomorrow_schedule",
+    "justify_attendance_events",
+    "toggle_bacheca_notice_adhesion",
   ]);
 });
