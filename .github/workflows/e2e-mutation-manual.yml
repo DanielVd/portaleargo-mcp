@@ -1,0 +1,48 @@
+name: Manual Famiglia mutation E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      acknowledge:
+        description: "Type RUN_MUTATION_E2E to execute a real Argo mutation against an already-read notice"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mutation-e2e:
+    if: ${{ inputs.acknowledge == 'RUN_MUTATION_E2E' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARGO_SCHOOL_CODE: ${{ secrets.ARGO_SCHOOL_CODE }}
+      ARGO_USERNAME: ${{ secrets.ARGO_USERNAME }}
+      ARGO_PASSWORD: ${{ secrets.ARGO_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+          cache: npm
+
+      - name: Verify Argo secrets
+        shell: bash
+        run: |
+          test -n "$ARGO_SCHOOL_CODE" || { echo "ARGO_SCHOOL_CODE secret is missing"; exit 1; }
+          test -n "$ARGO_USERNAME" || { echo "ARGO_USERNAME secret is missing"; exit 1; }
+          test -n "$ARGO_PASSWORD" || { echo "ARGO_PASSWORD secret is missing"; exit 1; }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run MCP mutation E2E
+        run: node scripts/e2e-mcp-confirm-bacheca-read.mjs
