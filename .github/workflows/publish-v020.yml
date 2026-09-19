@@ -1,0 +1,85 @@
+name: Publish portaleargo-mcp v0.2.0 (one-time)
+
+on:
+  push:
+    branches:
+      - release/publish-v0.2.0
+    paths:
+      - .github/workflows/publish-v020.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Confirm real MCP E2E and API dependency release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/35426617675" --jq .conclusion)" = "success"
+          test "$(gh api repos/DanielVd/portaleargo-api/releases/tags/v1.1.0 --jq .tag_name)" = "v1.1.0"
+          test "$(gh api repos/DanielVd/portaleargo-api/git/ref/tags/v1.1.0 --jq .object.sha)" = "f8d1fee7d5109236c831e04c4dd9a61ed5da3a75"
+
+      - name: Checkout verified release commit from main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Verify commit, package and vendored API versions
+        run: |
+          test "$(git rev-parse HEAD)" = "5b2710a385cc81c2df818afb8806e5e88c1aa0a9"
+          test "$(node -p 'require("./package.json").version')" = "0.2.0"
+          test "$(node -p 'require("./vendor/portaleargo-api/package.json").version')" = "1.1.0-github-snapshot"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+          cache: npm
+
+      - name: Install, audit, build and test
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+          npm run build
+          npm test
+
+      - name: Publish GitHub release for pinned main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v0.2.0 >/dev/null 2>&1; then
+            echo "v0.2.0 already exists: refusing duplicate publication"
+            exit 1
+          fi
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          ## Official Famiglia API integration
+
+          - Aligns the MCP server and its vendored client with [portaleargo-api v1.1.0](https://github.com/DanielVd/portaleargo-api/releases/tag/v1.1.0).
+          - Migrates supported profile, schedule, notice board, student document, curriculum, payment, meeting, recovery course and scrutiny workflows to the official Famiglia backend.
+          - Exposes Famiglia mutations for generic/student read confirmation, bulletin adhesion, disciplinary-note acknowledgment and attendance justification.
+          - Generic bulletin confirmation resolves and downloads a notice attachment before confirming read status.
+          - Adds a manual real-backend MCP STDIO E2E and a production dependency audit gate.
+
+          ## Compatibility and limitations
+
+          - Requires Node.js **20.18.1 or newer**.
+          - PCTO continues through the compatible legacy path because Famiglia PCTO returned HTTP 403 for the validation account.
+          - Adhesion, disciplinary-note acknowledgment and attendance justification are implemented, but are not yet validated end-to-end using real applicable records.
+
+          ## Validation
+
+          - Main-branch install/build/test CI passed for the release commit.
+          - The updated real-backend STDIO E2E passed for **both** generic bulletin and student-document read confirmation on already-read records before this release.
+
+          See [CHANGELOG.md](https://github.com/DanielVd/portaleargo-mcp/blob/v0.2.0/CHANGELOG.md) for details.
+          NOTES
+          gh release create v0.2.0 --target "5b2710a385cc81c2df818afb8806e5e88c1aa0a9" --title "v0.2.0 - Famiglia API MCP integration" --notes-file "$RUNNER_TEMP/release-notes.md"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v0.2.0" --jq .object.sha)" = "5b2710a385cc81c2df818afb8806e5e88c1aa0a9"
