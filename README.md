@@ -89,7 +89,7 @@ justify_attendance_events
 
 Automated CI does not execute mutating tools.
 
-A separate `Manual Famiglia mutation E2E` GitHub Actions workflow is available through `workflow_dispatch`. It requires the explicit acknowledgement `RUN_MUTATION_E2E`, starts the built MCP server over STDIO, selects an already-read bulletin with an attachment, invokes `confirm_bacheca_notice_read` through the MCP protocol, and re-reads the bulletin to verify `isPresaVisione=true`. It therefore exercises the production chain without changing an unread notice to read.
+A separate `Manual Famiglia mutation E2E` GitHub Actions workflow is available through `workflow_dispatch`. It requires the explicit acknowledgement `RUN_MUTATION_E2E`, starts the built MCP server over STDIO, and validates the real MCP protocol path for both `confirm_bacheca_notice_read` and `confirm_student_notice_read`. It selects only already-read records, invokes the mutations, and re-reads the corresponding data to verify `isPresaVisione=true`, so the probe does not turn an unread record into a read one.
 
 ## PCTO
 

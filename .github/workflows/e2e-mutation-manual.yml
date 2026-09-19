@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       acknowledge:
-        description: "Type RUN_MUTATION_E2E to execute a real Argo mutation against an already-read notice"
+        description: "Type RUN_MUTATION_E2E to execute safe real Argo mutations against already-read records"
         required: true
         type: string
 
@@ -45,4 +45,4 @@ jobs:
         run: npm run build
 
       - name: Run MCP mutation E2E
-        run: node scripts/e2e-mcp-confirm-bacheca-read.mjs
+        run: node scripts/e2e-mcp-mutations.mjs
