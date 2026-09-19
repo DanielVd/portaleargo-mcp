@@ -1,6 +1,6 @@
 {
   "name": "portaleargo-api",
-  "version": "1.0.0-github-snapshot",
+  "version": "1.1.0-github-snapshot",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,6 +20,9 @@
   "dependencies": {
     "http-cookie-agent": "^6.0.8",
     "tough-cookie": "^5.1.2",
-    "undici": "^7.5.0"
+    "undici": "^7.29.1"
+  },
+  "optionalDependencies": {
+    "ajv": "^8.20.0"
   }
 }

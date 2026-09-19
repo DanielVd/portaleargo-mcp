@@ -990,16 +990,17 @@ import { CookieJar } from "tough-cookie";
 import { interceptors, request } from "undici";
 var getCode = /* @__PURE__ */ __name(async (credentials) => {
   const link = await generateLoginLink();
-  const dispatcher = new CookieAgent({
+  const baseDispatcher = new CookieAgent({
     allowH2: true,
     autoSelectFamily: true,
     autoSelectFamilyAttemptTimeout: 1,
     cookies: { jar: new CookieJar() }
-  }).compose(
-    interceptors.retry(),
+  });
+  const noRedirectDispatcher = baseDispatcher.compose(interceptors.retry());
+  const dispatcher = noRedirectDispatcher.compose(
     interceptors.redirect({ maxRedirections: 3 })
   );
-  const url = (await request(link.url, { dispatcher, maxRedirections: 0 })).headers.location;
+  const url = (await request(link.url, { dispatcher: noRedirectDispatcher })).headers.location;
   ok(typeof url === "string", "Invalid login url");
   const challenge = new URL2(url).searchParams.get("login_challenge");
   ok(challenge, "Invalid login challenge");

@@ -6,7 +6,7 @@ MCP server for Portale Argo workflows, backed by the official Famiglia API throu
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20.18.1+
 - an Argo Famiglia account
 - school code, username, and password
 
