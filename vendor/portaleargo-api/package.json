@@ -1,6 +1,6 @@
 {
   "name": "portaleargo-api",
-  "version": "1.0.0-github-snapshot",
+  "version": "1.1.0-github-snapshot",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
