@@ -1,0 +1,52 @@
+name: Pre-release Famiglia MCP E2E v0.2.0
+
+on:
+  push:
+    branches:
+      - release/publish-v0.2.0
+    paths:
+      - .github/workflows/prerelease-v020.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ARGO_SCHOOL_CODE: ${{ secrets.ARGO_SCHOOL_CODE }}
+      ARGO_USERNAME: ${{ secrets.ARGO_USERNAME }}
+      ARGO_PASSWORD: ${{ secrets.ARGO_PASSWORD }}
+
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Verify release commit
+        run: test "$(git rev-parse HEAD)" = "5b2710a385cc81c2df818afb8806e5e88c1aa0a9"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and unit tests
+        run: |
+          npm run build
+          npm test
+
+      - name: Check credentials are configured
+        run: |
+          test -n "$ARGO_SCHOOL_CODE"
+          test -n "$ARGO_USERNAME"
+          test -n "$ARGO_PASSWORD"
+
+      - name: Real MCP STDIO E2E for already-read records
+        run: node scripts/e2e-mcp-mutations.mjs
