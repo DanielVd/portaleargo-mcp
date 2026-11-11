@@ -1,3 +1,4 @@
+import { getArgoConsentUrl, getArgoAuthorizationCode } from "./loginRedirect.js";
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
@@ -16,7 +17,7 @@ import {
 
 // src/util/Constants.ts
 var clientId = "72fd6dea-d0ab-4bb9-8eaa-3ac24c84886c";
-var defaultVersion = "1.27.0";
+var defaultVersion = "1.30.2";
 
 // src/util/encryptCodeVerifier.ts
 var encoder = new TextEncoder();
@@ -1001,7 +1002,7 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
   ok(typeof url === "string", "Invalid login url");
   const challenge = new URL2(url).searchParams.get("login_challenge");
   ok(challenge, "Invalid login challenge");
-  const { location } = await request(
+  const loginResponse = await request(
     "https://www.portaleargo.it/auth/sso/login",
     {
       dispatcher,
@@ -1016,10 +1017,14 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       method: "POST"
     }
-  ).then((r) => r.headers);
-  ok(typeof location === "string", "Invalid login redirect");
-  const code = new URL2(location).searchParams.get("code");
-  ok(code, "Invalid login code");
+  );
+  let location = loginResponse.headers.location;
+  if (!location && loginResponse.statusCode === 200) {
+    const consentUrl = getArgoConsentUrl(await loginResponse.body.text(), link);
+    const consentResponse = await request(consentUrl, { dispatcher, maxRedirections: 0 });
+    location = consentResponse.headers.location;
+  }
+  const code = getArgoAuthorizationCode(location, link);
   return { ...link, code };
 }, "getCode");
 
