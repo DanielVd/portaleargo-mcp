@@ -3,8 +3,11 @@ import { pathToFileURL } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { attachmentToolResult } from "./attachment.js";
 import {
   confirmDisciplinaryNoteRead,
+  downloadNoticeAttachment,
+  downloadStudentAttachment,
   confirmNoticeBoardRead,
   confirmStudentNoticeRead,
   getCurriculumData,
@@ -180,20 +183,44 @@ export function createServer() {
   );
 
   server.registerTool(
+    "download_notice_attachment",
+    {
+      description: "Download a notice-board attachment directly from Argo and return the file as an embedded MCP binary resource (PDF, images or Office ZIP files). Prefer this to expiring signed links. Use uid from get_bacheca.",
+      inputSchema: z.object({ uid: z.string().min(1, "uid is required") }),
+    },
+    async ({ uid }) => attachmentToolResult(await downloadNoticeAttachment(uid), uid, "notice"),
+  );
+
+  server.registerTool(
+    "download_student_attachment",
+    {
+      description: "Download a student notice-board attachment directly from Argo and return the binary document as an embedded MCP resource. Use uid and optional pkScheda from student documents.",
+      inputSchema: z.object({
+        uid: z.string().min(1, "uid is required"),
+        pkScheda: pkSchedaSchema.optional(),
+      }),
+    },
+    async ({ uid, pkScheda }) => {
+      const studentPk = pkScheda ?? await getDefaultPkScheda();
+      return attachmentToolResult(await downloadStudentAttachment(uid, studentPk), uid, "student");
+    },
+  );
+
+  server.registerTool(
     "get_notice_attachment_link",
     {
-      description: "Get download link for a notice-board attachment by uid.",
+      description: "Compatibility alias: download the real notice-board attachment as an embedded file, not an expiring signed URL. Prefer download_notice_attachment.",
       inputSchema: z.object({
         uid: z.string().min(1, "uid is required"),
       }),
     },
-    async ({ uid }) => toolResult("Notice attachment link", { uid, url: await getNoticeAttachmentLink(uid) }),
+    async ({ uid }) => attachmentToolResult(await downloadNoticeAttachment(uid), uid, "notice"),
   );
 
   server.registerTool(
     "get_student_attachment_link",
     {
-      description: "Get download link for a student notice-board attachment.",
+      description: "Compatibility alias: download the real student attachment as an embedded file, not an expiring signed URL. Prefer download_student_attachment.",
       inputSchema: z.object({
         uid: z.string().min(1, "uid is required"),
         pkScheda: pkSchedaSchema.optional(),
@@ -201,8 +228,7 @@ export function createServer() {
     },
     async ({ uid, pkScheda }) => {
       const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
-      const url = await getStudentAttachmentLink(uid, resolvedPkScheda);
-      return toolResult("Student attachment link", { uid, pkScheda: resolvedPkScheda, url });
+      return attachmentToolResult(await downloadStudentAttachment(uid, resolvedPkScheda), uid, "student");
     },
   );
 
