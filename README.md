@@ -81,6 +81,20 @@ The server exposes tools for:
 
 The MCP no longer calls legacy mutation endpoints directly; mutations are delegated to the canonical `portaleargo-api` client.
 
+## Download allegati Argo (COD-27)
+
+I link originali restituiti da Argo sono URL firmati a breve scadenza, quindi possono mostrare `Access Denied` quando vengono aperti dalla cronologia ChatGPT. **Non** utilizzare il link temporaneo come risultato finale.
+
+- `get_bacheca` presenta in `listaAllegati[].download` lo strumento `download_notice_attachment`.
+- `download_notice_attachment({uid})` ottiene il link Argo soltanto lato server, scarica i byte subito e restituisce una risorsa MCP incorporata con `blob` Base64 e `mimeType`.
+- `download_student_attachment({uid, pkScheda?})` applica lo stesso flusso agli allegati studente.
+- I due vecchi strumenti `get_notice_attachment_link` e `get_student_attachment_link` sono mantenuti come alias per i client ChatGPT con catalogo tool ancora in cache, ma ora restituiscono anch'essi il file reale, non l'URL effimero.
+- Nessuna persistenza permanente del PDF sul NUC; ChatGPT può ricevere il documento come file della conversazione.
+
+Sicurezza: sono consentiti solo URL HTTPS firmati dal dominio storage Argo; redirect bloccati; limiti di 15 MiB per file e timeout 30 secondi; verifica dei magic byte per PDF, JPEG, PNG, WebP e ZIP/Office; filename normalizzato. URL con firma, credenziali e contenuto binario non sono scritti nei log. I dati scolastici sono sensibili: evitare di riportare UID o link con firma in issue e log.
+
+Collaudo 12/11/2026: circolare 196 recuperata tramite MCP con risposta `application/pdf`, documento valido di 125571 byte e consegna di una risorsa MCP direttamente fruibile come file in ChatGPT. Test locali per accesso negato, URL manipolati, link scaduto, HTML travestito da documento e dimensione eccessiva.
+
 ## Mutating tools
 
 These tools change data in Argo and must be invoked deliberately:

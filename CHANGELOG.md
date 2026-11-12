@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - 2026-11-12
+
+### Fixed
+- COD-27: gli allegati Argo sono scaricati lato MCP e restituiti come risorsa binaria incorporata, evitando `Access Denied` causato dai link firmati a scadenza.
+- Introdotti `download_notice_attachment` e `download_student_attachment`; i vecchi strumenti sono alias retrocompatibili che ora consegnano il file invece del link.
+- Download protetto contro URL non Argo, redirect, file troppo grandi e contenuti con formato non riconosciuto.
+
+
 ## 0.2.0 - 2026-09-19
 
 ### Added

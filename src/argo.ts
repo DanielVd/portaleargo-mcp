@@ -1,5 +1,6 @@
 import { Client, type Dashboard } from "portaleargo-api";
 import { z } from "zod";
+import { fetchArgoAttachment } from "./attachment.js";
 
 const envSchema = z.object({
   ARGO_SCHOOL_CODE: z.string().min(1, "ARGO_SCHOOL_CODE is required"),
@@ -114,6 +115,14 @@ export async function getNoticeAttachmentLink(uid: string) {
   const argoClient = client ?? await initArgoClient();
   await argoClient.login();
   return argoClient.getLinkAllegato(uid);
+}
+
+export async function downloadNoticeAttachment(uid: string) {
+  return fetchArgoAttachment(await getNoticeAttachmentLink(uid));
+}
+
+export async function downloadStudentAttachment(uid: string, pkScheda?: string) {
+  return fetchArgoAttachment(await getStudentAttachmentLink(uid, pkScheda));
 }
 
 export async function getStudentAttachmentLink(uid: string, pkScheda?: string) {
@@ -349,9 +358,9 @@ function normalizeNoticeBoardItem<T extends NoticeBoardItem>(item: T) {
     uid: aPk,
     download: aPk
       ? {
-          tool: "get_notice_attachment_link",
+          tool: "download_notice_attachment",
           uid: aPk,
-          note: "Use this MCP tool to get a valid authenticated download link; do not use raw S3/AWS storage URLs.",
+          note: "Use this MCP tool to retrieve the actual attachment as an embedded binary resource. Do not expose expiring Argo storage URLs.",
         }
       : undefined,
   }));
