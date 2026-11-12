@@ -17,6 +17,8 @@ test("createServer registers expected tools", async () => {
     "confirm_bacheca_notice_read",
     "confirm_disciplinary_note_read",
     "confirm_student_notice_read",
+    "download_notice_attachment",
+    "download_student_attachment",
     "get_bacheca",
     "get_curriculum",
     "get_disponibilita_docente",
