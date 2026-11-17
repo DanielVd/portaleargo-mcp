@@ -1,12 +1,32 @@
 # Changelog
 
-## Unreleased - 2026-11-12
+## 0.3.0 - 2026-11-17
+
+### Added
+
+- Embedded MCP resource delivery for Argo attachments through `download_notice_attachment` and `download_student_attachment`, replacing short-lived signed links.
+- Targeted upstream Argo HTTP 5xx and transport-failure diagnostics, without logging credentials, tokens or signed query parameters.
+- A contributor guide with the GitHub-linked Codex co-author trailer and pull request validation conventions.
 
 ### Fixed
-- COD-27: gli allegati Argo sono scaricati lato MCP e restituiti come risorsa binaria incorporata, evitando `Access Denied` causato dai link firmati a scadenza.
-- Introdotti `download_notice_attachment` e `download_student_attachment`; i vecchi strumenti sono alias retrocompatibili che ora consegnano il file invece del link.
-- Download protetto contro URL non Argo, redirect, file troppo grandi e contenuti con formato non riconosciuto.
 
+- Support the current Argo OAuth consent continuation and update the advertised didUp client version.
+- Avoid the unreliable legacy `/appfamiglia/api/rest/login` endpoint for supported Famiglia profile, timetable, homework, bulletin, meeting and related MCP operations.
+- Safeguard attachment downloads against untrusted hosts, redirects, excessive size, expired signatures and unexpected MIME content.
+- Update the vendored API and transitive dependencies to address production audit findings.
+
+### Changed
+
+- Continue to support historical `login()` consumers; use the modern `loginFamiglia()` session for migrated MCP operations.
+- Keep the permission-dependent PCTO fallback where the modern endpoint was not validated for this school.
+- Maintain backwards-compatible attachment tool aliases that now return embedded files.
+- Standardize GitHub issue and PR documentation.
+
+### Validation
+
+- CI runs `npm ci`, production dependency audit, build and the automated test suite.
+- The 14-test MCP suite and 11 live read-only Argo integration checks passed during the November remediation.
+- Live state-changing tests were not rerun for this release; the manual mutation E2E remains explicit opt-in.
 
 ## 0.2.0 - 2026-09-19
 
