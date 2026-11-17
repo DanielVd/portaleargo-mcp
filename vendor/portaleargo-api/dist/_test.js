@@ -19,7 +19,7 @@ import {
 
 // src/util/Constants.ts
 var clientId = "72fd6dea-d0ab-4bb9-8eaa-3ac24c84886c";
-var defaultVersion = "1.27.0";
+var defaultVersion = "1.30.2";
 
 // src/util/encryptCodeVerifier.ts
 var encoder = new TextEncoder();
@@ -115,6 +115,41 @@ var handleOperation = /* @__PURE__ */ __name((array, old = [], ...[pk]) => {
     return !toDelete.includes(p, 1);
   });
 }, "handleOperation");
+
+// src/util/loginRedirect.ts
+function getArgoConsentUrl(html, loginLink) {
+  const anchors = html.matchAll(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1/gi);
+  for (const [, , encodedHref] of anchors) {
+    if (!encodedHref) continue;
+    const href = encodedHref.replace(/&amp;/gi, "&");
+    let url;
+    try {
+      url = new URL(href);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "https:" || url.hostname !== "auth.portaleargo.it" || url.pathname !== "/oauth2/auth") continue;
+    if (!url.searchParams.has("consent_verifier")) continue;
+    if (url.searchParams.get("client_id") !== loginLink.clientId) continue;
+    if (url.searchParams.get("state") !== loginLink.state) continue;
+    if (url.searchParams.get("redirect_uri") !== loginLink.redirectUri) continue;
+    return url.href;
+  }
+  throw new Error("Invalid Argo OAuth consent page");
+}
+__name(getArgoConsentUrl, "getArgoConsentUrl");
+function getArgoAuthorizationCode(location, loginLink) {
+  if (typeof location !== "string") throw new Error("Invalid login redirect");
+  const callback = new URL(location);
+  const expected = new URL(loginLink.redirectUri);
+  if (callback.protocol !== expected.protocol || callback.hostname !== expected.hostname || callback.pathname !== expected.pathname)
+    throw new Error("Unexpected Argo OAuth callback");
+  if (callback.searchParams.get("state") !== loginLink.state) throw new Error("Invalid Argo OAuth state");
+  const code = callback.searchParams.get("code");
+  if (!code) throw new Error("Invalid login code");
+  return code;
+}
+__name(getArgoAuthorizationCode, "getArgoAuthorizationCode");
 
 // src/BaseClient.ts
 var BaseClient = class _BaseClient {
@@ -281,6 +316,26 @@ var BaseClient = class _BaseClient {
       throw new Error("Famiglia dashboard returned no data");
     this.famigliaDashboard = data;
     return data;
+  }
+  /**
+   * Authenticate and load Famiglia data without invoking legacy
+   * /appfamiglia/api/rest login, profile or dashboard endpoints.
+   *
+   * The historical login() method remains available for compatibility.
+   */
+  async loginFamiglia() {
+    await this.loadData();
+    const expiresAt = this.token?.expireDate instanceof Date ? this.token.expireDate.getTime() : 0;
+    if (!this.token || expiresAt <= Date.now() + 6e4) {
+      await this.getToken();
+      this.apiSession = void 0;
+      this.famigliaProfile = void 0;
+      this.famigliaDashboard = void 0;
+    }
+    if (!this.apiSession) await this.bootstrapSession();
+    const profile = await this.getProfilo();
+    const dashboard = await this.getDashboard();
+    return { profile, dashboard };
   }
   /**
    * Effettua il login.
@@ -1004,7 +1059,7 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
   ok(typeof url === "string", "Invalid login url");
   const challenge = new URL2(url).searchParams.get("login_challenge");
   ok(challenge, "Invalid login challenge");
-  const { location } = await request(
+  const loginResponse = await request(
     "https://www.portaleargo.it/auth/sso/login",
     {
       dispatcher,
@@ -1019,10 +1074,16 @@ var getCode = /* @__PURE__ */ __name(async (credentials) => {
       headers: { "content-type": "application/x-www-form-urlencoded" },
       method: "POST"
     }
-  ).then((r) => r.headers);
-  ok(typeof location === "string", "Invalid login redirect");
-  const code = new URL2(location).searchParams.get("code");
-  ok(code, "Invalid login code");
+  );
+  let { location } = loginResponse.headers;
+  if (!location && loginResponse.statusCode === 200) {
+    const consentUrl = getArgoConsentUrl(await loginResponse.body.text(), link);
+    const consentResponse = await request(consentUrl, {
+      dispatcher: noRedirectDispatcher
+    });
+    ({ location } = consentResponse.headers);
+  }
+  const code = getArgoAuthorizationCode(typeof location === "string" ? location : void 0, link);
   return { ...link, code };
 }, "getCode");
 
