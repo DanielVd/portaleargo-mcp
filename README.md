@@ -4,7 +4,7 @@
 
 MCP server for Portale Argo workflows, backed by the official Famiglia API through `portaleargo-api`.
 
-**Current GitHub release:** [v0.2.0](https://github.com/DanielVd/portaleargo-mcp/releases/tag/v0.2.0) (2026-09-19). It contains the vendored build of [portaleargo-api v1.1.0](https://github.com/DanielVd/portaleargo-api/releases/tag/v1.1.0); see [CHANGELOG.md](CHANGELOG.md) for the release history.
+**Current GitHub release:** [v0.3.0](https://github.com/DanielVd/portaleargo-mcp/releases/tag/v0.3.0) (2026-11-17). It includes the modern Famiglia authentication fixes and embedded attachment delivery; see [CHANGELOG.md](CHANGELOG.md) for details.
 
 This release is published on **GitHub, not npm**. The project contains a local `file:vendor/portaleargo-api` dependency, so build from the checked-out repository rather than trying to install `portaleargo-mcp` from npm.
 
@@ -29,7 +29,7 @@ Do not put credentials in tool arguments, source files, logs, or repository conf
 ## Installation
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/DanielVd/portaleargo-mcp.git
+git clone --branch v0.3.0 --depth 1 https://github.com/DanielVd/portaleargo-mcp.git
 cd portaleargo-mcp
 npm ci
 npm run build
@@ -37,7 +37,7 @@ npm run build
 
 Set the three Argo environment variables shown above **before starting the MCP server**. Do not copy them into the repository.
 
-The project vendors the generated `dist/` of the canonical `DanielVd/portaleargo-api` repository under `vendor/portaleargo-api`. The bundled package is labeled `1.1.0-github-snapshot` to distinguish it from a separately published npm package. The development branch on `main` additionally syncs the modern OAuth and Famiglia-only login fixes from [portaleargo-api PR #9](https://github.com/DanielVd/portaleargo-api/pull/9); this does not change the published v0.2.0 tag.
+The project vendors the generated `dist/` of the canonical `DanielVd/portaleargo-api` repository under `vendor/portaleargo-api`. The bundled package is labeled `1.1.0-github-snapshot` to distinguish it from a separately published npm package. The v0.3.0 release incorporates the modern OAuth and Famiglia-only login fixes from [portaleargo-api PR #9](https://github.com/DanielVd/portaleargo-api/pull/9). Historical release tags remain available.
 
 The API repository is the source of truth. Changes to the vendored library should be produced by building the canonical API and synchronizing the generated `dist/`, not by hand-editing generated files.
 
@@ -137,7 +137,7 @@ For pull requests to `main`, the required `CI / test` job performs `npm ci`, `np
 
 The live-mutation workflow is **manual only**: from GitHub Actions, select `Manual Famiglia mutation E2E`, enter `RUN_MUTATION_E2E`, and run it on `main`. It uses the `ARGO_SCHOOL_CODE`, `ARGO_USERNAME`, and `ARGO_PASSWORD` Actions secrets, selects already-read records, invokes both read-confirmation tools over STDIO, and re-reads their states. It must not be enabled as a routine push/PR check.
 
-Both read-confirmation paths passed the manual pre-release E2E for [v0.2.0](https://github.com/DanielVd/portaleargo-mcp/releases/tag/v0.2.0). The `v0.2.0` tag remains fixed; documentation changes on `main` after publication do not alter its source archive.
+Both read-confirmation paths passed the manual pre-release E2E for [v0.2.0](https://github.com/DanielVd/portaleargo-mcp/releases/tag/v0.2.0). The v0.3.0 release preserves these tools without rerunning state-changing tests against school data.
 
 ## Safety
 
