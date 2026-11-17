@@ -37,7 +37,7 @@ npm run build
 
 Set the three Argo environment variables shown above **before starting the MCP server**. Do not copy them into the repository.
 
-The project vendors the generated `dist/` of the canonical `DanielVd/portaleargo-api` repository under `vendor/portaleargo-api`. The bundled package is labeled `1.1.0-github-snapshot` to distinguish it from a separately published npm package; its code is aligned with the API v1.1.0 GitHub release.
+The project vendors the generated `dist/` of the canonical `DanielVd/portaleargo-api` repository under `vendor/portaleargo-api`. The bundled package is labeled `1.1.0-github-snapshot` to distinguish it from a separately published npm package. The development branch on `main` additionally syncs the modern OAuth and Famiglia-only login fixes from [portaleargo-api PR #9](https://github.com/DanielVd/portaleargo-api/pull/9); this does not change the published v0.2.0 tag.
 
 The API repository is the source of truth. Changes to the vendored library should be produced by building the canonical API and synchronizing the generated `dist/`, not by hand-editing generated files.
 
@@ -127,7 +127,9 @@ The official Famiglia PCTO endpoint is permission-dependent. On the account used
 
 The vendored API uses the Famiglia backend for the migrated application methods, including read-only data, notice confirmations, adhesion, disciplinary-note confirmation, and attendance justification. The last three mutations are not yet validated end-to-end on applicable live records.
 
-Some authentication lifecycle internals remain as a compatibility layer in `portaleargo-api` so existing callers of the historical `login()` flow are not broken. MCP tools do not need to call legacy mutation endpoints themselves.
+The MCP authenticates through `loginFamiglia()`, which initializes OAuth, the Famiglia session, profile and dashboard without calling `/appfamiglia/api/rest/login`. The historical `login()` compatibility path remains available in the API library for external callers, but it can fail when the legacy endpoint returns HTTP 503. The MCP intentionally retains the legacy PCTO path where modern payloads could not be validated for this school; other supported read and mutation methods use the modern session. MCP tools do not invoke legacy mutation endpoints directly.
+
+The HTTP server logs upstream 5xx status and transport-error codes with only hostname and URL path, never query parameters, credentials or tokens. This change addresses [issue #11](https://github.com/DanielVd/portaleargo-mcp/issues/11).
 
 ## Validation
 

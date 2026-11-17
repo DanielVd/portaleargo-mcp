@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { channel } from "node:diagnostics_channel";
 import { createServer as createHttpServer } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express, { type Request, type Response } from "express";
@@ -26,6 +27,46 @@ import {
 import { createServer } from "./index.js";
 import { getHomeworkForDate, getTomorrowDateInRome, isoDateSchema } from "./tools/getTomorrowHomework.js";
 import { extractScheduleForDate } from "./tools/getTomorrowSchedule.js";
+
+type UndiciDiagnosticEvent = {
+  request?: { origin?: string; path?: string };
+  response?: { statusCode?: number };
+  error?: { code?: string; name?: string };
+};
+
+const argoUpstreamHosts = new Set([
+  "auth.portaleargo.it",
+  "www.portaleargo.it",
+  "didattica.portaleargo.it",
+]);
+
+function logArgoUpstreamDiagnostic(event: unknown, kind: "status" | "error") {
+  const diagnostic = event as UndiciDiagnosticEvent;
+  let url: URL;
+  try {
+    url = new URL(diagnostic.request?.origin ?? "");
+  } catch {
+    return;
+  }
+  if (!argoUpstreamHosts.has(url.hostname)) return;
+
+  // Do not log query parameters, OAuth tokens, credentials or request bodies.
+  const path = String(diagnostic.request?.path ?? "/").split("?")[0];
+  if (kind === "status") {
+    const status = diagnostic.response?.statusCode;
+    if (typeof status === "number" && status >= 500) {
+      console.error("[Argo upstream] " + url.hostname + path + " HTTP " + status);
+    }
+  } else {
+    console.error("[Argo upstream] " + url.hostname + path
+      + " request error: " + (diagnostic.error?.code ?? diagnostic.error?.name ?? "unknown"));
+  }
+}
+
+function monitorArgoUpstream() {
+  channel("undici:request:headers").subscribe((event) => logArgoUpstreamDiagnostic(event, "status"));
+  channel("undici:request:error").subscribe((event) => logArgoUpstreamDiagnostic(event, "error"));
+}
 
 const host = process.env.MCP_HTTP_HOST ?? "0.0.0.0";
 const port = Number(process.env.MCP_HTTP_PORT ?? "3000");
@@ -288,13 +329,14 @@ function handleApiError(res: Response, error: unknown) {
 
   const message = error instanceof Error ? error.message : "Internal server error";
   res.status(500).json({
-    error: "Could not load homework",
+    error: "Argo API request failed",
     message,
   });
 }
 
 async function main() {
   readArgoEnv();
+  monitorArgoUpstream();
 
   const app = createApp();
   const httpServer = createHttpServer(app);

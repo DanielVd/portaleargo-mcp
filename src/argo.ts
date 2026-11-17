@@ -11,6 +11,46 @@ const envSchema = z.object({
 let client: Client | null = null;
 let initPromise: Promise<Client> | null = null;
 
+let famigliaClient: Client | null = null;
+let famigliaInitPromise: Promise<Client> | null = null;
+
+/**
+ * Use the supported Famiglia API directly. The legacy /appfamiglia/api/rest/login
+ * endpoint is not required to read schedules, homework or notices and can return 503.
+ */
+async function initFamigliaClient(): Promise<Client> {
+  const expiresAt = famigliaClient?.token?.expireDate;
+  if (famigliaClient && expiresAt instanceof Date && expiresAt.getTime() > Date.now() + 60_000) {
+    return famigliaClient;
+  }
+  if (famigliaInitPromise) return famigliaInitPromise;
+
+  const credentials = readArgoEnv();
+  const nextClient = new Client({
+    schoolCode: credentials.ARGO_SCHOOL_CODE,
+    username: credentials.ARGO_USERNAME,
+    password: credentials.ARGO_PASSWORD,
+    dataProvider: null,
+  });
+  famigliaInitPromise = (async () => {
+    try {
+      await nextClient.loginFamiglia();
+      famigliaClient = nextClient;
+      return nextClient;
+    } catch (error) {
+      const cause = (error as Error & { cause?: { code?: string } }).cause?.code;
+      console.error("[Argo Famiglia] login failed: " + toSafeErrorMessage(error)
+        + (cause ? " (" + cause + ")" : ""));
+      throw new Error("Argo Famiglia login failed: " + toSafeErrorMessage(error));
+    }
+  })();
+  try {
+    return await famigliaInitPromise;
+  } finally {
+    famigliaInitPromise = null;
+  }
+}
+
 export function readArgoEnv(env: NodeJS.ProcessEnv = process.env) {
   const parsed = envSchema.safeParse(env);
 
@@ -66,54 +106,43 @@ export function getArgoClient(): Client {
 }
 
 export async function refreshDashboard(): Promise<Dashboard> {
-  const argoClient = client ?? await initArgoClient();
-
+  const argoClient = await initFamigliaClient();
   try {
-    // Reusing login() lets the library refresh tokens and reload dashboard data.
-    const loggedInClient = await argoClient.login();
-
-    if (!loggedInClient.dashboard || !Array.isArray(loggedInClient.dashboard.registro)) {
-      throw new Error("dashboard.registro is not available");
+    const dashboard = await argoClient.getDashboard();
+    if (!dashboard || !Array.isArray(dashboard.registro)) {
+      throw new Error("Famiglia dashboard.registro is not available");
     }
-
-    return loggedInClient.dashboard;
+    return dashboard as unknown as Dashboard;
   } catch (error) {
-    throw new Error(`Could not read Argo dashboard data: ${toSafeErrorMessage(error)}`);
+    console.error("[Argo Famiglia] dashboard failed: " + toSafeErrorMessage(error));
+    throw new Error("Could not read Argo dashboard data: " + toSafeErrorMessage(error));
   }
 }
 
 export async function getProfile() {
-  const argoClient = client ?? await initArgoClient();
-  const loggedInClient = await argoClient.login();
-
-  if (!loggedInClient.profile) {
-    throw new Error("Argo profile is not available");
-  }
-
-  return loggedInClient.profile;
+  const argoClient = await initFamigliaClient();
+  const profile = await argoClient.getProfilo();
+  return { ...profile, alunno: { ...profile.alunno, pk: profile.alunno.alunnoPK } };
 }
 
 export async function getProfileDetails() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getDettagliProfilo();
 }
 
 export async function getScheduleForDate(date: string) {
-  const argoClient = client ?? await initArgoClient();
   const [year, month, day] = date.split("-").map(Number);
-
   try {
-    await argoClient.login();
+    const argoClient = await initFamigliaClient();
     return await argoClient.getOrarioGiornaliero({ year, month, day });
   } catch (error) {
+    console.error("[Argo Famiglia] schedule failed: " + toSafeErrorMessage(error));
     throw new Error(`Could not read Argo schedule data: ${toSafeErrorMessage(error)}`);
   }
 }
 
 export async function getNoticeAttachmentLink(uid: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getLinkAllegato(uid);
 }
 
@@ -126,32 +155,27 @@ export async function downloadStudentAttachment(uid: string, pkScheda?: string) 
 }
 
 export async function getStudentAttachmentLink(uid: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getLinkAllegatoStudente(uid, pkScheda);
 }
 
 export async function getPaymentReceipt(iuv: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getRicevuta(iuv);
 }
 
 export async function getScrutinyGrades() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getVotiScrutinio();
 }
 
 export async function getMeetings() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getRicevimenti();
 }
 
 export async function getTaxes(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getTasse(pkScheda);
 }
 
@@ -162,32 +186,28 @@ export async function getPcto(pkScheda?: string) {
 }
 
 export async function getRecoveryCourses(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getCorsiRecupero(pkScheda);
 }
 
 export async function getCurriculumData(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getCurriculum(pkScheda);
 }
 
 export async function getNoticeBoardHistory(pkScheda: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   const items = await argoClient.getStoricoBacheca(pkScheda);
   return items.map(normalizeNoticeBoardItem);
 }
 
 export async function getStudentNoticeBoardHistory(pkScheda: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getStoricoBachecaAlunno(pkScheda);
 }
 
 export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   const response = await argoClient.confirmPresaVisioneBachecaAlunno(prgMessaggio);
 
@@ -277,19 +297,19 @@ export async function getDisponibilitaDocente(pkDocente: string) {
 }
 
 export async function confirmNoticeBoardRead(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   return argoClient.confirmPresaVisioneBacheca(resolvedPkScheda, prgMessaggio);
 }
 
 export async function toggleNoticeBoardAdhesion(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   return argoClient.togglePresaAdesioneBacheca(resolvedPkScheda, prgMessaggio);
 }
 
 export async function confirmDisciplinaryNoteRead(pk: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   return argoClient.confirmPresaVisioneNota(pk);
 }
 
@@ -298,7 +318,7 @@ export async function justifyAttendanceEvents(
   datGiorno: string,
   descrizione: string,
 ) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   return argoClient.giustificaEventi(assenze, datGiorno, descrizione);
 }
 

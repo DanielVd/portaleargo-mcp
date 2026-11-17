@@ -10,7 +10,7 @@ var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "
 
 // src/util/Constants.ts
 var clientId = "72fd6dea-d0ab-4bb9-8eaa-3ac24c84886c";
-var defaultVersion = "1.27.0";
+var defaultVersion = "1.30.2";
 
 // src/util/encryptCodeVerifier.ts
 var encoder = new TextEncoder();
@@ -106,6 +106,41 @@ var handleOperation = /* @__PURE__ */ __name((array, old = [], ...[pk]) => {
     return !toDelete.includes(p, 1);
   });
 }, "handleOperation");
+
+// src/util/loginRedirect.ts
+function getArgoConsentUrl(html, loginLink) {
+  const anchors = html.matchAll(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1/gi);
+  for (const [, , encodedHref] of anchors) {
+    if (!encodedHref) continue;
+    const href = encodedHref.replace(/&amp;/gi, "&");
+    let url;
+    try {
+      url = new URL(href);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "https:" || url.hostname !== "auth.portaleargo.it" || url.pathname !== "/oauth2/auth") continue;
+    if (!url.searchParams.has("consent_verifier")) continue;
+    if (url.searchParams.get("client_id") !== loginLink.clientId) continue;
+    if (url.searchParams.get("state") !== loginLink.state) continue;
+    if (url.searchParams.get("redirect_uri") !== loginLink.redirectUri) continue;
+    return url.href;
+  }
+  throw new Error("Invalid Argo OAuth consent page");
+}
+__name(getArgoConsentUrl, "getArgoConsentUrl");
+function getArgoAuthorizationCode(location, loginLink) {
+  if (typeof location !== "string") throw new Error("Invalid login redirect");
+  const callback = new URL(location);
+  const expected = new URL(loginLink.redirectUri);
+  if (callback.protocol !== expected.protocol || callback.hostname !== expected.hostname || callback.pathname !== expected.pathname)
+    throw new Error("Unexpected Argo OAuth callback");
+  if (callback.searchParams.get("state") !== loginLink.state) throw new Error("Invalid Argo OAuth state");
+  const code = callback.searchParams.get("code");
+  if (!code) throw new Error("Invalid login code");
+  return code;
+}
+__name(getArgoAuthorizationCode, "getArgoAuthorizationCode");
 
 // src/BaseClient.ts
 var _ready;
@@ -260,6 +295,26 @@ var _BaseClient = class _BaseClient {
       throw new Error("Famiglia dashboard returned no data");
     this.famigliaDashboard = data;
     return data;
+  }
+  /**
+   * Authenticate and load Famiglia data without invoking legacy
+   * /appfamiglia/api/rest login, profile or dashboard endpoints.
+   *
+   * The historical login() method remains available for compatibility.
+   */
+  async loginFamiglia() {
+    await this.loadData();
+    const expiresAt = this.token?.expireDate instanceof Date ? this.token.expireDate.getTime() : 0;
+    if (!this.token || expiresAt <= Date.now() + 6e4) {
+      await this.getToken();
+      this.apiSession = void 0;
+      this.famigliaProfile = void 0;
+      this.famigliaDashboard = void 0;
+    }
+    if (!this.apiSession) await this.bootstrapSession();
+    const profile = await this.getProfilo();
+    const dashboard = await this.getDashboard();
+    return { profile, dashboard };
   }
   /**
    * Effettua il login.
@@ -1013,6 +1068,8 @@ export {
   encryptCodeVerifier,
   formatDate,
   generateLoginLink,
+  getArgoAuthorizationCode,
+  getArgoConsentUrl,
   getToken,
   handleOperation,
   randomString
