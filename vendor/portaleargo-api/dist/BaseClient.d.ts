@@ -188,6 +188,72 @@ export declare abstract class BaseClient {
         [key: string]: Json;
     }>;
     /**
+     * Authenticate and load Famiglia data without invoking legacy
+     * /appfamiglia/api/rest login, profile or dashboard endpoints.
+     *
+     * The historical login() method remains available for compatibility.
+     */
+    loginFamiglia(): Promise<{
+        profile: {
+            resetPassword: boolean;
+            ultimoCambioPwd: string | null;
+            anno: {
+                anno: string;
+                dataInizio: string;
+                dataFine: string;
+            };
+            annoCorrente: {
+                anno: string;
+                dataInizio: string;
+                dataFine: string;
+            };
+            genitore: {
+                desEMail: string;
+                nominativo: string;
+                genitorePK: string;
+            };
+            profiloDisabilitato: boolean;
+            isSpid: boolean;
+            alunno: {
+                isUltimaClasse: boolean;
+                nominativo: string;
+                cognome: string;
+                nome: string;
+                alunnoPK: string;
+                maggiorenne: boolean;
+                desEmail: string | null;
+            };
+            scheda: {
+                pk: string;
+                anno: number;
+                aggiornaSchedaPK: boolean;
+                classe: {
+                    pk: string;
+                    desDenominazione: string;
+                    desSezione: string;
+                };
+                sede: {
+                    pk: string;
+                    descrizione: string;
+                };
+                scuola: {
+                    pk: string;
+                    desOrdine: string;
+                    descrizione: string;
+                };
+                corso: {
+                    pk: string;
+                    descrizione: string;
+                };
+            };
+            primoAccesso: boolean;
+            profiloStorico: boolean;
+        };
+        dashboard: {
+            [key: string]: Json;
+        };
+    }>;
+    /**
      * Effettua il login.
      * @returns Il client aggiornato
      */

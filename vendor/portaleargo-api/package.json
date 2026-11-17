@@ -20,7 +20,7 @@
   "dependencies": {
     "http-cookie-agent": "^6.0.8",
     "tough-cookie": "^5.1.2",
-    "undici": "^7.29.1"
+    "undici": "^7.30.2"
   },
   "optionalDependencies": {
     "ajv": "^8.20.0"

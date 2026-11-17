@@ -33,20 +33,15 @@ async function initFamigliaClient(): Promise<Client> {
     dataProvider: null,
   });
   famigliaInitPromise = (async () => {
-    let stage = "OAuth token";
     try {
-      await nextClient.getToken();
-      stage = "Famiglia session";
-      await nextClient.bootstrapSession();
-      stage = "Famiglia profile";
-      await nextClient.getProfilo();
+      await nextClient.loginFamiglia();
       famigliaClient = nextClient;
       return nextClient;
     } catch (error) {
       const cause = (error as Error & { cause?: { code?: string } }).cause?.code;
-      console.error("[Argo Famiglia] " + stage + " failed: " + toSafeErrorMessage(error)
+      console.error("[Argo Famiglia] login failed: " + toSafeErrorMessage(error)
         + (cause ? " (" + cause + ")" : ""));
-      throw new Error("Argo " + stage + " failed: " + toSafeErrorMessage(error));
+      throw new Error("Argo Famiglia login failed: " + toSafeErrorMessage(error));
     }
   })();
   try {
@@ -131,8 +126,7 @@ export async function getProfile() {
 }
 
 export async function getProfileDetails() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getDettagliProfilo();
 }
 
@@ -148,8 +142,7 @@ export async function getScheduleForDate(date: string) {
 }
 
 export async function getNoticeAttachmentLink(uid: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getLinkAllegato(uid);
 }
 
@@ -162,32 +155,27 @@ export async function downloadStudentAttachment(uid: string, pkScheda?: string) 
 }
 
 export async function getStudentAttachmentLink(uid: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getLinkAllegatoStudente(uid, pkScheda);
 }
 
 export async function getPaymentReceipt(iuv: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getRicevuta(iuv);
 }
 
 export async function getScrutinyGrades() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getVotiScrutinio();
 }
 
 export async function getMeetings() {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getRicevimenti();
 }
 
 export async function getTaxes(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getTasse(pkScheda);
 }
 
@@ -198,14 +186,12 @@ export async function getPcto(pkScheda?: string) {
 }
 
 export async function getRecoveryCourses(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getCorsiRecupero(pkScheda);
 }
 
 export async function getCurriculumData(pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getCurriculum(pkScheda);
 }
 
@@ -216,13 +202,12 @@ export async function getNoticeBoardHistory(pkScheda: string) {
 }
 
 export async function getStudentNoticeBoardHistory(pkScheda: string) {
-  const argoClient = client ?? await initArgoClient();
-  await argoClient.login();
+  const argoClient = await initFamigliaClient();
   return argoClient.getStoricoBachecaAlunno(pkScheda);
 }
 
 export async function confirmStudentNoticeRead(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   const response = await argoClient.confirmPresaVisioneBachecaAlunno(prgMessaggio);
 
@@ -312,19 +297,19 @@ export async function getDisponibilitaDocente(pkDocente: string) {
 }
 
 export async function confirmNoticeBoardRead(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   return argoClient.confirmPresaVisioneBacheca(resolvedPkScheda, prgMessaggio);
 }
 
 export async function toggleNoticeBoardAdhesion(prgMessaggio: string, pkScheda?: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   const resolvedPkScheda = pkScheda ?? await getDefaultPkScheda();
   return argoClient.togglePresaAdesioneBacheca(resolvedPkScheda, prgMessaggio);
 }
 
 export async function confirmDisciplinaryNoteRead(pk: string) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   return argoClient.confirmPresaVisioneNota(pk);
 }
 
@@ -333,7 +318,7 @@ export async function justifyAttendanceEvents(
   datGiorno: string,
   descrizione: string,
 ) {
-  const argoClient = client ?? await initArgoClient();
+  const argoClient = await initFamigliaClient();
   return argoClient.giustificaEventi(assenze, datGiorno, descrizione);
 }
 
